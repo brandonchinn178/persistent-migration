@@ -24,14 +24,14 @@ been run yet.
 import Database.Persist.Migration
 import Database.Persist.Sql (PersistValue(..), rawExecute, rawSql)
 
-createPerson :: Operation
+createPerson :: CreateTable
 createPerson = CreateTable
   { name = "person"
   , schema =
       [ Column "id" SqlInt32 []
       , Column "name" SqlString []
       , Column "age" SqlInt32 []
-      , Column "alive" SqlBool [Defaults True]
+      , Column "alive" SqlBool [Defaults "TRUE"]
       , Column "hometown" SqlInt64 [Nullable, ForeignKey ("cities", "id")]
       ]
   , constraints =
@@ -41,7 +41,7 @@ createPerson = CreateTable
   }
 
 migrateHeight :: RawOperation
-migrateHeight = rawSql "SELECT id, height FROM person" [] >>= traverse_ migrateHeight'
+migrateHeight = RawOperation $ rawSql "SELECT id, height FROM person" [] >>= traverse_ migrateHeight'
   where
     migrateHeight' (Single id', Single height) = do
       let (feet, inches) = quotRem height 12
@@ -54,26 +54,24 @@ migrateHeight = rawSql "SELECT id, height FROM person" [] >>= traverse_ migrateH
 migration :: Migration
 migration =
   -- version 1
-  [ createPerson
+  [ (0, Operation createPerson)
 
   -- version 2
-  , AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing
+  , (1, Operation $ AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing)
   -- Non-null column without default for inserted rows needs a default for existing rows.
-  , AddColumn "person" (Column "height" SqlInt32 []) (Just "0")
+  , (2, Operation $ AddColumn "person" (Column "height" SqlInt32 []) (Just "0"))
 
   -- version 3
-  , AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0")
-  , AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0")
-  , RawOperation migrateHeight
-  , DropColumn "person" "height"
+  , (3, Operation $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0"))
+  , (4, Operation $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0"))
+  , (5, Operation migrateHeight)
+  , (6, Operation $ DropColumn "person" "height")
   ]
 ```
 
 ```
 import Database.Persist.Migration (checkMigration)
-
--- from persistent-sqlite-migration
-import Database.Persist.Sqlite.Migration (runMigration)
+import Database.Persist.Migration.Sqlite (runMigration)
 
 -- the migration defined above
 import MyMigration (migration)
