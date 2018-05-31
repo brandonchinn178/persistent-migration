@@ -8,6 +8,7 @@ Defines a migration framework for the persistent library.
 -}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
@@ -45,9 +46,6 @@ fromSub opId (SubOperation opOp) = Operation{..}
 -- | A migration is simply a list of operations.
 type Migration = [Operation]
 
--- | A list of operations containing a Bool that should be False to make the operation a noop.
-type MigrationInfo = [(Bool, Operation)]
-
 -- | The type for the underlying operation.
 --
 -- RawOperations should primarily use 'rawSql' and 'rawExecute' from the persistent library. If the
@@ -72,9 +70,14 @@ class Migrateable m where
   -- | Get the SQL queries to run the migration.
   getMigrationText :: MigrateBackend -> m -> MigrateT IO [Text]
 
-  -- | Modify the list of pending operations prior to migrating.
-  modifyMigration :: OperationId -> m -> MigrationInfo -> MigrationInfo
-  modifyMigration _ _ = id
+  -- | Given the tentative migration and the operations left to process, return the updated
+  -- tentative migration and the possibly modified todo list.
+  modifyMigration :: m -> Operation -> (Migration, Migration) -> (Migration, Migration)
+  modifyMigration _ op (tentative, todo) = (tentative ++ [op], todo)
+
+-- | Modify the migration according to the given operation.
+modifyMigration' :: Operation -> (Migration, Migration) -> (Migration, Migration)
+modifyMigration' op@Operation{opOp} = modifyMigration opOp op
 
 {- Core Operations -}
 
@@ -148,12 +151,14 @@ instance Migrateable NoOp where
 data Revert = Revert OperationId [SubOperation]
 
 instance Migrateable Revert where
-  getMigrationText backend (Revert _ (Operation _ op)) = getMigrationText backend op
+  getMigrationText = error "The Revert operation is erroneously in the finalized migration."
 
-  modifyMigration newId (Revert oldId _) migrations =
-    if any ((== oldId) . opId . snd) migrations
-      then setNoop [oldId, newId] migrations
-      else migrations
+  modifyMigration (Revert oldId ops) Operation{opId = newId} (tentative, todo) =
+    if any isOpToRevert tentative
+      then (filter isOpToRevert tentative, todo)
+      else (tentative, map (fromSub newId) ops ++ todo)
+    where
+      isOpToRevert = (== oldId) . opId
 
 -- | If none of the given OperationIds have been run, run the given operations instead.
 --
@@ -174,14 +179,15 @@ instance Migrateable Revert where
 data Squash = Squash [OperationId] [SubOperation]
 
 instance Migrateable Squash where
-  getMigrationText backend (Squash _ ops) = fmap concat . mapM helper $ ops
-    where
-      helper (Operation _ op) = getMigrationText backend op
+  getMigrationText = error "The Squash operation is erroneously in the finalized migration."
 
-  modifyMigration newId (Squash ids _) migrations =
-    if all (`elem` map (opId . snd) migrations) ids
-      then setNoop [newId] migrations
-      else setNoop ids migrations
+  modifyMigration (Squash oldIds ops) Operation{opId = newId} (tentative, todo) =
+    if all inTentative oldIds
+      then (filter (not . inSquashed) tentative, map (fromSub newId) ops ++ todo)
+      else (tentative, todo)
+    where
+      inTentative = (`elem` map opId tentative)
+      inSquashed = (`elem` oldIds) . opId
 
 {- Auxiliary types -}
 
