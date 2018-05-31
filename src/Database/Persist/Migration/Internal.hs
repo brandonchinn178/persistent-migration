@@ -60,15 +60,15 @@ type MigrateT m a = forall backend. BackendCompatible SqlBackend backend => Read
 
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
-  { createTable :: CreateTable -> MigrateT IO ()
-  , dropTable :: DropTable -> MigrateT IO ()
-  , addColumn :: AddColumn -> MigrateT IO ()
-  , dropColumn :: DropColumn -> MigrateT IO ()
+  { createTable :: CreateTable -> MigrateT IO [Text]
+  , dropTable :: DropTable -> MigrateT IO [Text]
+  , addColumn :: AddColumn -> MigrateT IO [Text]
+  , dropColumn :: DropColumn -> MigrateT IO [Text]
   }
 
 class Migrateable m where
-  -- | How to run the given operation.
-  runOperation :: MigrateBackend -> m -> MigrateT IO ()
+  -- | Get the SQL queries to run the migration.
+  getMigrationText :: MigrateBackend -> m -> MigrateT IO [Text]
 
   -- | Modify the list of pending operations prior to migrating.
   modifyMigration :: OperationId -> m -> MigrationInfo -> MigrationInfo
@@ -84,13 +84,13 @@ data CreateTable = CreateTable
   }
 
 instance Migrateable CreateTable where
-  runOperation = createTable
+  getMigrationText = createTable
 
 -- | An operation to drop the given table.
 data DropTable = DropTable Text
 
 instance Migrateable DropTable where
-  runOperation = dropTable
+  getMigrationText = dropTable
 
 -- | An operation to add the given column to an existing table.
 data AddColumn = AddColumn
@@ -102,7 +102,7 @@ data AddColumn = AddColumn
   }
 
 instance Migrateable AddColumn where
-  runOperation = addColumn
+  getMigrationText = addColumn
 
 -- | An operation to drop the given column to an existing table.
 data DropColumn = DropColumn
@@ -111,13 +111,13 @@ data DropColumn = DropColumn
   }
 
 instance Migrateable DropColumn where
-  runOperation = dropColumn
+  getMigrationText = dropColumn
 
 -- | A custom operation that can be defined manually.
-newtype RawOperation = RawOperation (MigrateT IO ())
+newtype RawOperation = RawOperation (MigrateT IO [Text])
 
 instance Migrateable RawOperation where
-  runOperation _ (RawOperation op) = op
+  getMigrationText _ (RawOperation op) = op
 
 -- | If the given OperationId has not been run, don't run it. Otherwise, run the given Operation.
 --
@@ -136,7 +136,7 @@ instance Migrateable RawOperation where
 data Revert = Revert OperationId Operation
 
 instance Migrateable Revert where
-  runOperation backend (Revert _ (Operation _ op)) = runOperation backend op
+  getMigrationText backend (Revert _ (Operation _ op)) = getMigrationText backend op
 
   modifyMigration newId (Revert oldId _) migrations =
     if any ((== oldId) . opId . snd) migrations
@@ -162,9 +162,9 @@ instance Migrateable Revert where
 data Squash = Squash [OperationId] [Operation]
 
 instance Migrateable Squash where
-  runOperation backend (Squash _ ops) = fmap concat . mapM helper $ ops
+  getMigrationText backend (Squash _ ops) = fmap concat . mapM helper $ ops
     where
-      helper (Operation _ op) = runOperation backend op
+      helper (Operation _ op) = getMigrationText backend op
 
   modifyMigration newId (Squash ids _) migrations =
     if all (`elem` map (opId . snd) migrations) ids
