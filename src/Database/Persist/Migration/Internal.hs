@@ -20,32 +20,31 @@ import Database.Persist.Types (SqlType(..))
 
 {- Operation types -}
 
--- | An operation that can be migrated.
-data Operation = forall m. Migrateable m => Operation m
-
 -- | The ID of an operation. Should be unique and not change, ever.
 type OperationId = Int
 
--- | Information about an operation in the context of a migration.
-data OperationInfo = OperationInfo
-  { opId :: OperationId
-  , opNoop :: Bool -- ^ Switch to True to not run the operation but still record it as having ran
-  }
+-- | An operation that can be migrated.
+data Operation =
+  forall m. Migrateable m =>
+  Operation
+    { opId :: OperationId
+    , opOp :: m
+    }
 
--- | Set opNoop to True for any operations in the given migration with the given OperationIds.
+-- | Set an operation to be a noop for any operations in the given migration with the given OperationIds.
 setNoop :: [OperationId] -> MigrationInfo -> MigrationInfo
-setNoop ids = map $ \(info, op) ->
-  if opId info `elem` ids
-    then (info{opNoop = True}, op)
-    else (info, op)
+setNoop ids = map $ \(shouldRun, op) ->
+  if opId op `elem` ids
+    then (False, op)
+    else (shouldRun, op)
 
 {- Migration types -}
 
--- | A list of operations with their IDs.
-type Migration = [(OperationId, Operation)]
+-- | A list of operations.
+type Migration = [Operation]
 
--- | A list of annotated operations to use for migrations.
-type MigrationInfo = [(OperationInfo, Operation)]
+-- | A list of operations containing a Bool that should be False to make the operation a noop.
+type MigrationInfo = [(Bool, Operation)]
 
 -- | The type for the underlying operation.
 --
@@ -72,9 +71,7 @@ class Migrateable m where
   runOperation :: MigrateBackend -> m -> MigrateT IO ()
 
   -- | Modify the list of pending operations prior to migrating.
-  --
-  -- Given the operation doing the modifying and the info for the operation within the migration.
-  modifyMigration :: OperationInfo -> m -> MigrationInfo -> MigrationInfo
+  modifyMigration :: OperationId -> m -> MigrationInfo -> MigrationInfo
   modifyMigration _ _ = id
 
 {- Core Operations -}
@@ -127,9 +124,9 @@ instance Migrateable RawOperation where
 -- e.g. given:
 -- @
 -- migrations =
---   [ (0, CreateTable "person" ...)
---   , (1, DropColumn "person" "name")
---   , (2, Revert 1 $ AddColumn "person" (Column "name" ...) ...)
+--   [ Operation 0 $ CreateTable "person" ...
+--   , Operation 1 $ DropColumn "person" "name"
+--   , Operation 2 $ Revert 1 $ AddColumn "person" (Column "name" ...) ...
 --   ]
 -- @
 --
@@ -139,10 +136,10 @@ instance Migrateable RawOperation where
 data Revert = Revert OperationId Operation
 
 instance Migrateable Revert where
-  runOperation backend (Revert _ (Operation op)) = runOperation backend op
+  runOperation backend (Revert _ (Operation _ op)) = runOperation backend op
 
-  modifyMigration OperationInfo{opId = newId} (Revert oldId _) migrations =
-    if any ((== oldId) . opId . fst) migrations
+  modifyMigration newId (Revert oldId _) migrations =
+    if any ((== oldId) . opId . snd) migrations
       then setNoop [oldId, newId] migrations
       else migrations
 
@@ -151,10 +148,10 @@ instance Migrateable Revert where
 -- e.g. given:
 -- @
 -- migrations =
---   [ (0, CreateTable "person" ...)
---   , (1, AddColumn "person" (Column "height" ...) ...)
---   , (2, DropColumn "person" "height")
---   , (3, Squash [1,2] [])
+--   [ Operation 0 $ CreateTable "person" ...
+--   , Operation 1 $ AddColumn "person" (Column "height" ...) ...
+--   , Operation 2 $ DropColumn "person" "height"
+--   , Operation 3 $ Squash [1,2] []
 --   ]
 -- @
 --
@@ -165,10 +162,12 @@ instance Migrateable Revert where
 data Squash = Squash [OperationId] [Operation]
 
 instance Migrateable Squash where
-  runOperation backend (Squash _ ops) = mapM_ (\(Operation op) -> runOperation backend op) ops
+  runOperation backend (Squash _ ops) = fmap concat . mapM helper $ ops
+    where
+      helper (Operation _ op) = runOperation backend op
 
-  modifyMigration OperationInfo{opId = newId} (Squash ids _) migrations =
-    if all (`elem` map (opId . fst) migrations) ids
+  modifyMigration newId (Squash ids _) migrations =
+    if all (`elem` map (opId . snd) migrations) ids
       then setNoop [newId] migrations
       else setNoop ids migrations
 

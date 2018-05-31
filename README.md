@@ -54,18 +54,18 @@ migrateHeight = RawOperation $ rawSql "SELECT id, height FROM person" [] >>= tra
 migration :: Migration
 migration =
   -- version 1
-  [ (0, Operation createPerson)
+  [ Operation 0 $ createPerson)
 
   -- version 2
-  , (1, Operation $ AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing)
+  , Operation 1 $ AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing)
   -- Non-null column without default for inserted rows needs a default for existing rows.
-  , (2, Operation $ AddColumn "person" (Column "height" SqlInt32 []) (Just "0"))
+  , Operation 2 $ AddColumn "person" (Column "height" SqlInt32 []) (Just "0"))
 
   -- version 3
-  , (3, Operation $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0"))
-  , (4, Operation $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0"))
-  , (5, Operation migrateHeight)
-  , (6, Operation $ DropColumn "person" "height")
+  , Operation 3 $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0"))
+  , Operation 4 $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0"))
+  , Operation 5 $ migrateHeight)
+  , Operation 6 $ DropColumn "person" "height")
   ]
 ```
 
