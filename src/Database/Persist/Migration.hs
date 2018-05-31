@@ -24,6 +24,7 @@ module Database.Persist.Migration
   , RawOperation(..)
   , Revert(..)
   , Squash(..)
+  , NoOp(..)
   -- * Auxiliary types
   , Column(..)
   , ColumnProp(..)

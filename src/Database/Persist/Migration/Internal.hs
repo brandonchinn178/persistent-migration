@@ -10,6 +10,7 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Internal where
 
@@ -31,13 +32,6 @@ data Operation =
     { opId :: OperationId
     , opOp :: m
     }
-
--- | Set an operation to be a noop for any operations in the given migration with the given OperationIds.
-setNoop :: [OperationId] -> MigrationInfo -> MigrationInfo
-setNoop ids = map $ \(shouldRun, op) ->
-  if opId op `elem` ids
-    then (False, op)
-    else (shouldRun, op)
 
 -- | An operation nested within another operation.
 data SubOperation = forall m. Migrateable m => SubOperation m
@@ -126,6 +120,12 @@ newtype RawOperation = RawOperation (MigrateT IO [Text])
 
 instance Migrateable RawOperation where
   getMigrationText _ (RawOperation op) = op
+
+-- | A noop operation.
+data NoOp = NoOp
+
+instance Migrateable NoOp where
+  getMigrationText _ NoOp = return []
 
 {- Nested operations -}
 
