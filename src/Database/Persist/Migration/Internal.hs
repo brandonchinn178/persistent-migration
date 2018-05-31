@@ -9,6 +9,7 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Database.Persist.Migration.Internal where
 
@@ -38,9 +39,16 @@ setNoop ids = map $ \(shouldRun, op) ->
     then (False, op)
     else (shouldRun, op)
 
+-- | An operation nested within another operation.
+data SubOperation = forall m. Migrateable m => SubOperation m
+
+-- | Create an operation from a suboperation.
+fromSub :: OperationId -> SubOperation -> Operation
+fromSub opId (SubOperation opOp) = Operation{..}
+
 {- Migration types -}
 
--- | A list of operations.
+-- | A migration is simply a list of operations.
 type Migration = [Operation]
 
 -- | A list of operations containing a Bool that should be False to make the operation a noop.
@@ -119,21 +127,25 @@ newtype RawOperation = RawOperation (MigrateT IO [Text])
 instance Migrateable RawOperation where
   getMigrationText _ (RawOperation op) = op
 
--- | If the given OperationId has not been run, don't run it. Otherwise, run the given Operation.
+{- Nested operations -}
+
+-- | If the given OperationId has not been run, don't run it. Otherwise, run the given operations.
 --
 -- e.g. given:
 -- @
 -- migrations =
 --   [ Operation 0 $ CreateTable "person" ...
 --   , Operation 1 $ DropColumn "person" "name"
---   , Operation 2 $ Revert 1 $ AddColumn "person" (Column "name" ...) ...
+--   , Operation 2 $ Revert 1
+--       [ SubOperation $ AddColumn "person" (Column "name" ...) ...
+--       ]
 --   ]
 -- @
 --
 -- * Someone migrating an empty database will only run operation 0
 -- * Someone who only ran 0 will not run anything
 -- * Someone who ran 0 and 1 will run the AddColumn operation in 2
-data Revert = Revert OperationId Operation
+data Revert = Revert OperationId [SubOperation]
 
 instance Migrateable Revert where
   getMigrationText backend (Revert _ (Operation _ op)) = getMigrationText backend op
@@ -143,7 +155,7 @@ instance Migrateable Revert where
       then setNoop [oldId, newId] migrations
       else migrations
 
--- | If none of the given OperationIds have been run, run the given operation instead.
+-- | If none of the given OperationIds have been run, run the given operations instead.
 --
 -- e.g. given:
 -- @
@@ -159,7 +171,7 @@ instance Migrateable Revert where
 -- * Someone who only ran 0 will only run 3
 -- * Someone who ran up to 1 will run 2, but not 3
 -- * Someone who ran up to 2 will not run anything
-data Squash = Squash [OperationId] [Operation]
+data Squash = Squash [OperationId] [SubOperation]
 
 instance Migrateable Squash where
   getMigrationText backend (Squash _ ops) = fmap concat . mapM helper $ ops

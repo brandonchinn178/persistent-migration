@@ -10,8 +10,8 @@ Defines a migration framework for the persistent library.
 module Database.Persist.Migration
   (
   -- * Operation types
-    OperationId
-  , Operation(..)
+    Operation(..)
+  , SubOperation(..)
   -- * Migration types
   , Migration
   , MigrateBackend(..)
