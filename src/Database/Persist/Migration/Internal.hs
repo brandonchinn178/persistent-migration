@@ -79,6 +79,19 @@ class Migrateable m where
 modifyMigration' :: Operation -> (Migration, Migration) -> (Migration, Migration)
 modifyMigration' op@Operation{opOp} = modifyMigration opOp op
 
+-- | Finalize the migration plan.
+finalizeMigration :: Migration -> Migration
+finalizeMigration migration = helper ([], migration)
+  where
+    helper (tentative, []) = tentative
+    helper (tentative, (op:todo)) = helper $ modifyMigration' op (tentative, todo)
+
+-- | Get the SQL queries for the given migration.
+getMigration :: MigrateBackend -> Migration -> MigrateT IO [Text]
+getMigration backend = fmap concat . mapM helper
+  where
+    helper (Operation _ op) = getMigrationText backend op
+
 {- Core Operations -}
 
 -- | An operation to create a table according to the specified schema.

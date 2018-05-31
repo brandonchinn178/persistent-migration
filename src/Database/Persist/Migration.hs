@@ -14,8 +14,11 @@ module Database.Persist.Migration
   , SubOperation(..)
   -- * Migration types
   , Migration
+  , MigrateT
   , MigrateBackend(..)
   , Migrateable(..)
+  -- * Migration functions
+  , getMigration
   -- * Core operations
   , CreateTable(..)
   , DropTable(..)
