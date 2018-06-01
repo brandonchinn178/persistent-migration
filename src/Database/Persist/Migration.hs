@@ -22,6 +22,7 @@ module Database.Persist.Migration
   -- * Migration functions
   , runMigration
   , getMigration
+  , checkMigration
   -- * Core operations
   , CreateTable(..)
   , DropTable(..)
@@ -37,4 +38,16 @@ module Database.Persist.Migration
   , TableConstraint(..)
   ) where
 
+import Control.Monad (unless)
+import qualified Data.Text as Text
 import Database.Persist.Migration.Internal
+import qualified Database.Persist.Sql as Persistent
+
+-- | Fails if the persistent library detects more migrations unaccounted for.
+checkMigration :: Persistent.Migration -> MigrateT IO ()
+checkMigration migration = do
+  migrationText <- Persistent.showMigration migration
+  unless (null migrationText) $ fail $
+    unlines $ "More migrations detected:" : bullets migrationText
+  where
+    bullets = map ((" * " ++ ) . Text.unpack)
