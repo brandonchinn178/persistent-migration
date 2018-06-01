@@ -1,0 +1,79 @@
+version: 2
+
+aliases:
+  # build environment
+  - &docker-linux
+    docker:
+      - image: centos:7
+    working_directory: /root/src
+
+  # system dependencies
+  - &install-deps
+    run:
+      name: Install system dependencies
+      command: |
+        yum update -y --exclude=filesystem
+        yum install -y zlib-devel
+  - &install-stack
+    run:
+      name: Install stack
+      command: curl -sSL https://get.haskellstack.org/ | sh
+
+  # cache
+  - &cache-key
+    v1-{{ checksum "stack.yaml" }}-{{ checksum "persistent-migration.cabal" }}
+  - &build-deps
+    run:
+      name: Build external dependencies
+      command: stack build --test --only-dependencies
+
+  # build steps
+  - &run-build
+    run:
+      name: Build package
+      command: stack build --test --no-run-tests
+
+  # test steps
+  - &run-test
+    run:
+      name: Run tests
+      command: stack test
+
+jobs:
+  build:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - *install-deps
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *build-deps
+      - save_cache:
+          key: *cache-key
+          paths:
+            - ~/.stack
+      - *run-build
+      - persist_to_workspace:
+          root: .
+          paths:
+              - .stack-work
+  test:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *run-test
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
