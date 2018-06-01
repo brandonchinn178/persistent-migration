@@ -42,6 +42,7 @@ test-suite persistent-migration-test
                , tasty
                , tasty-discover
                , tasty-hunit
+               , text
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances

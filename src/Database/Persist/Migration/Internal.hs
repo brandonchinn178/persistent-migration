@@ -12,6 +12,7 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Internal where
@@ -36,14 +37,12 @@ data Operation =
     , opOp :: m
     }
 
+deriving instance Show Operation
+
 -- | An operation nested within another operation.
 data SubOperation = forall m. Migrateable m => SubOperation m
 
 deriving instance Show SubOperation
-
--- | Create an operation from a suboperation.
-fromSub :: OperationId -> SubOperation -> Operation
-fromSub opId (SubOperation opOp) = Operation{..}
 
 {- Migration types -}
 
@@ -53,8 +52,11 @@ type Migration = [Operation]
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
   { setupMigrations :: SqlPersistT IO ()
+      -- ^ set up the migration table if it hasn't been already
   , getCompletedOps :: SqlPersistT IO [OperationId]
+      -- ^ get a list of operation IDs that have already been completed
   , saveMigration :: Migration -> SqlPersistT IO ()
+      -- ^ save the operations in the given migration to the database as completed
   , createTable :: CreateTable -> SqlPersistT IO [Text]
   , dropTable :: DropTable -> SqlPersistT IO [Text]
   , addColumn :: AddColumn -> SqlPersistT IO [Text]
@@ -67,8 +69,7 @@ data MigrateAction
   | RUN      -- ^ The operation should be run in this migration
   | REVERTED -- ^ The operation was reverted by another operation
   | SQUASHED -- ^ The operation was squashed by another operation
-  | NOOP     -- ^ The operation should not be run, but still marked as run
-  deriving (Eq)
+  deriving (Eq,Show)
 
 type OperationPlan = (MigrateAction, Operation)
 
@@ -194,7 +195,7 @@ data NoOp = NoOp
   deriving (Show)
 
 instance Migrateable NoOp where
-  getMigrationText _ NoOp = return []
+  getMigrationText _ _ = return []
 
 {- Nested operations -}
 
@@ -203,10 +204,20 @@ isPlannedOp :: OperationId -> (MigrateAction, Operation) -> Bool
 isPlannedOp opId' (action, Operation{opId}) = action /= DONE && opId == opId'
 
 -- | Set all operations with the given ID to the given MigrateAction.
-setAction :: MigrateAction -> OperationId -> [OperationPlan] -> [OperationPlan]
-setAction action opId' = map setAction'
+setAction :: MigrateAction -> [OperationId] -> [OperationPlan] -> [OperationPlan]
+setAction action opIds = map setAction'
   where
-    setAction' opPlan@(_, op@Operation{opId}) = if opId == opId' then (action, op) else opPlan
+    setAction' opPlan@(_, op@Operation{opId}) = if opId `elem` opIds then (action, op) else opPlan
+
+-- | Insert the given suboperations into the plan and todo list for the given operation ID.
+insertOperations :: OperationId -> [SubOperation] -> MigratePlan -> MigratePlan
+insertOperations opId' subOps mp = mp
+  { plan = concatMap expandOp (plan mp)
+  , todo = newOps ++ todo mp
+  }
+  where
+    newOps = map (\(SubOperation op) -> Operation opId' op) subOps
+    expandOp item@(_, Operation{opId}) = item : if opId == opId' then map (RUN,) newOps else []
 
 -- | If the given OperationId has not been run, don't run it. Otherwise, run the given operations.
 --
@@ -228,14 +239,12 @@ data Revert = Revert OperationId [SubOperation]
   deriving (Show)
 
 instance Migrateable Revert where
-  getMigrationText = error "The Revert operation is erroneously in the finalized migration."
+  getMigrationText _ _ = return []
 
-  modifyMigration (Revert oldId ops) Operation{opId} mp@MigratePlan{plan,todo} =
+  modifyMigration (Revert oldId ops) Operation{opId} mp@MigratePlan{plan} =
     if any (isPlannedOp oldId) plan
-      then mp{plan = setAction REVERTED oldId plan'}
-      else mp{plan = plan', todo = map (fromSub opId) ops ++ todo}
-    where
-      plan' = setAction NOOP opId plan
+      then mp{plan = setAction REVERTED [oldId] plan}
+      else insertOperations opId ops mp
 
 -- | If none of the given OperationIds have been run, run the given operations instead.
 --
@@ -257,16 +266,14 @@ data Squash = Squash [OperationId] [SubOperation]
   deriving (Show)
 
 instance Migrateable Squash where
-  getMigrationText = error "The Squash operation is erroneously in the finalized migration."
+  getMigrationText _ _ = return []
 
-  modifyMigration (Squash oldIds ops) Operation{opId} mp@MigratePlan{plan,todo} =
+  modifyMigration (Squash oldIds ops) Operation{opId} mp@MigratePlan{plan} =
     if all isPlanned oldIds
-      then mp{plan = squashedPlan, todo = map (fromSub opId) ops ++ todo}
-      else mp{plan = plan'}
+      then insertOperations opId ops mp{plan = setAction SQUASHED oldIds plan}
+      else mp
     where
       isPlanned oldId = any (isPlannedOp oldId) plan
-      plan' = setAction NOOP opId plan
-      squashedPlan = foldl (\p oldId -> setAction SQUASHED oldId p) plan' oldIds
 
 {- Auxiliary types -}
 
