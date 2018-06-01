@@ -12,9 +12,13 @@ aliases:
         curl -sSL https://get.haskellstack.org/ | sh
         stack setup
   - &run-build
-    run: stack build
+    run:
+      name: Build package
+      command: stack build --test --no-run-tests
   - &run-test
-    run: stack test
+    run:
+      name: Run tests
+      command: stack test
 
 jobs:
   build:
@@ -27,14 +31,12 @@ jobs:
           root: .
           paths:
               - .stack-work
-              - ~/.stack
-              - /usr/local/bin/stack
   test:
-    docker:
-      - image: *docker-ubuntu
+    <<: *docker-ubuntu
     steps:
       - attach_workspace:
           at: .
+      - *install-stack
       - *run-test
 
 workflows:
