@@ -66,29 +66,49 @@ data MigrateBackend = MigrateBackend
   , dropColumn :: DropColumn -> MigrateT IO [Text]
   }
 
+-- | An action for an operation in a MigratePlan.
+data MigrateAction
+  = DONE     -- ^ The operation was already done in a previous migration
+  | RUN      -- ^ The operation should be run in this migration
+  | REVERTED -- ^ The operation was reverted by another operation
+  | SQUASHED -- ^ The operation was squashed by another operation
+  | NOOP     -- ^ The operation should not be run, but still marked as run
+  deriving (Eq)
+
+type OperationPlan = (MigrateAction, Operation)
+
+-- | The tentative plan for migration.
+data MigratePlan = MigratePlan
+  { original :: Migration -- ^ The original, full migration defined by the user
+  , plan :: [OperationPlan] -- ^ The tentative list of operations
+  , todo :: [Operation] -- ^ The unprocessed list of operations to add to plan
+  }
+
+-- | The type class for data types that can be migrated.
 class Migrateable m where
   -- | Get the SQL queries to run the migration.
   getMigrationText :: MigrateBackend -> m -> MigrateT IO [Text]
 
   -- | Given the tentative migration and the operations left to process, return the updated
   -- tentative migration and the possibly modified todo list.
-  modifyMigration :: m -> Operation -> (Migration, Migration) -> (Migration, Migration)
-  modifyMigration _ op (tentative, todo) = (tentative ++ [op], todo)
+  modifyMigration :: m -> Operation -> MigratePlan -> MigratePlan
+  modifyMigration _ _ = id
 
 -- | Modify the migration according to the given operation.
-modifyMigration' :: Operation -> (Migration, Migration) -> (Migration, Migration)
+modifyMigration' :: Operation -> MigratePlan -> MigratePlan
 modifyMigration' op@Operation{opOp} = modifyMigration opOp op
 
 -- | Finalize the migration plan.
-finalizeMigration :: Migration -> Migration
-finalizeMigration migration = helper ([], migration)
+finalizeMigratePlan :: MigratePlan -> MigratePlan
+finalizeMigratePlan migratePlan = helper migratePlan
   where
-    helper (tentative, []) = tentative
-    helper (tentative, (op:todo)) = helper $ modifyMigration' op (tentative, todo)
+    helper migratePlan' = case todo migratePlan' of
+      [] -> migratePlan'
+      (op:todo') -> helper $ modifyMigration' op migratePlan'{todo = todo'}
 
 -- | Get the SQL queries for the given migration.
 getMigration :: MigrateBackend -> Migration -> MigrateT IO [Text]
-getMigration backend = fmap concat . mapM helper
+getMigration backend = fmap concat . mapM helper -- TODO: finalizeMigratePlan
   where
     helper (Operation _ op) = getMigrationText backend op
 
@@ -145,6 +165,16 @@ instance Migrateable NoOp where
 
 {- Nested operations -}
 
+-- | Check if the given operation is not DONE and the id matches the given id.
+isPlannedOp :: OperationId -> (MigrateAction, Operation) -> Bool
+isPlannedOp opId' (action, Operation{opId}) = action /= DONE && opId == opId'
+
+-- | Set all operations with the given ID to the given MigrateAction.
+setAction :: MigrateAction -> OperationId -> [OperationPlan] -> [OperationPlan]
+setAction action opId' = map setAction'
+  where
+    setAction' opPlan@(_, op@Operation{opId}) = if opId == opId' then (action, op) else opPlan
+
 -- | If the given OperationId has not been run, don't run it. Otherwise, run the given operations.
 --
 -- e.g. given:
@@ -166,12 +196,12 @@ data Revert = Revert OperationId [SubOperation]
 instance Migrateable Revert where
   getMigrationText = error "The Revert operation is erroneously in the finalized migration."
 
-  modifyMigration (Revert oldId ops) Operation{opId = newId} (tentative, todo) =
-    if any isOpToRevert tentative
-      then (filter isOpToRevert tentative, todo)
-      else (tentative, map (fromSub newId) ops ++ todo)
+  modifyMigration (Revert oldId ops) Operation{opId} mp@MigratePlan{plan,todo} =
+    if any (isPlannedOp oldId) plan
+      then mp{plan = setAction REVERTED oldId plan'}
+      else mp{plan = plan', todo = map (fromSub opId) ops ++ todo}
     where
-      isOpToRevert = (== oldId) . opId
+      plan' = setAction NOOP opId plan
 
 -- | If none of the given OperationIds have been run, run the given operations instead.
 --
@@ -194,13 +224,14 @@ data Squash = Squash [OperationId] [SubOperation]
 instance Migrateable Squash where
   getMigrationText = error "The Squash operation is erroneously in the finalized migration."
 
-  modifyMigration (Squash oldIds ops) Operation{opId = newId} (tentative, todo) =
-    if all inTentative oldIds
-      then (filter (not . inSquashed) tentative, map (fromSub newId) ops ++ todo)
-      else (tentative, todo)
+  modifyMigration (Squash oldIds ops) Operation{opId} mp@MigratePlan{plan,todo} =
+    if all isPlanned oldIds
+      then mp{plan = squashedPlan, todo = map (fromSub opId) ops ++ todo}
+      else mp{plan = plan'}
     where
-      inTentative = (`elem` map opId tentative)
-      inSquashed = (`elem` oldIds) . opId
+      isPlanned oldId = any (isPlannedOp oldId) plan
+      plan' = setAction NOOP opId plan
+      squashedPlan = foldl (\p oldId -> setAction SQUASHED oldId p) plan' oldIds
 
 {- Auxiliary types -}
 
