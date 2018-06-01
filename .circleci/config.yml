@@ -44,14 +44,18 @@ aliases:
       command: stack build --test --no-run-tests
 
   # test steps
-  - &run-hlint
-    run:
-      name: Run HLint
-      command: scripts/hlint.sh
   - &run-test
     run:
       name: Run tests
       command: stack test
+  - &run-hlint
+    run:
+      name: Run HLint
+      command: scripts/hlint.sh
+  - &run-stylish-haskell
+    run:
+      name: Run stylish-haskell
+      command: scripts/stylish-haskell.sh
 
 jobs:
   prebuild:
@@ -84,16 +88,7 @@ jobs:
           root: .
           paths:
               - .stack-work
-  hlint:
-    <<: *docker-linux
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - *install-stack
-      - restore_cache:
-          key: *cache-key
-      - *run-hlint
+
   test:
     <<: *docker-linux
     steps:
@@ -104,6 +99,28 @@ jobs:
       - restore_cache:
           key: *cache-key
       - *run-test
+
+  hlint:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *run-hlint
+
+  stylish-haskell:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *run-stylish-haskell
 
 workflows:
   version: 2
@@ -118,5 +135,8 @@ workflows:
           requires:
             - build
       - hlint:
+          requires:
+            - build
+      - stylish-haskell:
           requires:
             - build

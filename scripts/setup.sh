@@ -5,4 +5,4 @@
 set -eo pipefail
 
 stack build --test --only-dependencies
-stack build hlint
+stack build hlint stylish-haskell
