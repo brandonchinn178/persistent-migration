@@ -54,12 +54,12 @@ data MigrateBackend = MigrateBackend
       -- ^ set up the migration table if it hasn't been already
   , getCompletedOps :: SqlPersistT IO [OperationId]
       -- ^ get a list of operation IDs that have already been completed
-  , saveMigration :: Migration -> SqlPersistT IO ()
+  , saveMigration   :: Migration -> SqlPersistT IO ()
       -- ^ save the operations in the given migration to the database as completed
-  , createTable :: CreateTable -> SqlPersistT IO [Text]
-  , dropTable :: DropTable -> SqlPersistT IO [Text]
-  , addColumn :: AddColumn -> SqlPersistT IO [Text]
-  , dropColumn :: DropColumn -> SqlPersistT IO [Text]
+  , createTable     :: CreateTable -> SqlPersistT IO [Text]
+  , dropTable       :: DropTable -> SqlPersistT IO [Text]
+  , addColumn       :: AddColumn -> SqlPersistT IO [Text]
+  , dropColumn      :: DropColumn -> SqlPersistT IO [Text]
   }
 
 -- | An action for an operation in a MigratePlan.
@@ -75,8 +75,8 @@ type OperationPlan = (MigrateAction, Operation)
 -- | The tentative plan for migration.
 data MigratePlan = MigratePlan
   { original :: Migration -- ^ The original, full migration defined by the user
-  , plan :: [OperationPlan] -- ^ The tentative list of operations
-  , todo :: [Operation] -- ^ The unprocessed list of operations to add to plan
+  , plan     :: [OperationPlan] -- ^ The tentative list of operations
+  , todo     :: [Operation] -- ^ The unprocessed list of operations to add to plan
   }
 
 -- | The type class for data types that can be migrated.
@@ -130,8 +130,8 @@ getMigration backend migration = do
 
 -- | An operation to create a table according to the specified schema.
 data CreateTable = CreateTable
-  { ctName :: Text
-  , ctSchema :: [Column]
+  { ctName        :: Text
+  , ctSchema      :: [Column]
   , ctConstraints :: [TableConstraint]
   } deriving (Show)
 
@@ -149,8 +149,8 @@ instance Migrateable DropTable where
 
 -- | An operation to add the given column to an existing table.
 data AddColumn = AddColumn
-  { acTable :: Text
-  , acColumn :: Column
+  { acTable   :: Text
+  , acColumn  :: Column
   , acDefault :: Maybe Text
     -- ^ if the column is non-nullable and doesn't have a default, need to define a default for
     -- existing rows.
@@ -161,7 +161,7 @@ instance Migrateable AddColumn where
 
 -- | An operation to drop the given column to an existing table.
 data DropColumn = DropColumn
-  { dcTable :: Text
+  { dcTable  :: Text
   , dcColumn :: Text
   } deriving (Show)
 
@@ -278,8 +278,8 @@ instance Migrateable Squash where
 
 -- | The definition for a Column in a SQL database.
 data Column = Column
-  { colName :: Text
-  , colType :: SqlType
+  { colName  :: Text
+  , colType  :: SqlType
   , colProps :: [ColumnProp]
   } deriving (Show)
 
