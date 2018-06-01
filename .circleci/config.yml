@@ -20,12 +20,22 @@ aliases:
       command: curl -sSL https://get.haskellstack.org/ | sh
 
   # cache
+  - &build-cache-key
+    run:
+      name: Build cache key
+      command: |
+        FILES=(
+          stack.yaml
+          scripts/setup.sh
+          persistent-migration.cabal
+        )
+        cat "${FILES[@]}" > cache-key.txt
   - &cache-key
-    v1-{{ checksum "stack.yaml" }}-{{ checksum "persistent-migration.cabal" }}
+    v1-{{ checksum "cache-key.txt" }}
   - &build-deps
     run:
       name: Build external dependencies
-      command: stack build --test --only-dependencies
+      command: scripts/setup.sh
 
   # build steps
   - &run-build
@@ -38,12 +48,32 @@ aliases:
     run:
       name: Run tests
       command: stack test
+  - &run-hlint
+    run:
+      name: Run HLint
+      command: scripts/hlint.sh
+  - &run-stylish-haskell
+    run:
+      name: Run stylish-haskell
+      command: scripts/stylish-haskell.sh
 
 jobs:
+  prebuild:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - *build-cache-key
+      - persist_to_workspace:
+          root: .
+          paths:
+            - cache-key.txt
+
   build:
     <<: *docker-linux
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - *install-deps
       - *install-stack
       - restore_cache:
@@ -58,6 +88,7 @@ jobs:
           root: .
           paths:
               - .stack-work
+
   test:
     <<: *docker-linux
     steps:
@@ -69,11 +100,43 @@ jobs:
           key: *cache-key
       - *run-test
 
+  hlint:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *run-hlint
+
+  stylish-haskell:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *run-stylish-haskell
+
 workflows:
   version: 2
+
   build_and_test:
     jobs:
-      - build
+      - prebuild
+      - build:
+          requires:
+            - prebuild
       - test:
+          requires:
+            - build
+      - hlint:
+          requires:
+            - build
+      - stylish-haskell:
           requires:
             - build

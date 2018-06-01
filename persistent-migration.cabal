@@ -21,8 +21,8 @@ library
   exposed-modules:    Database.Persist.Migration
   other-modules:      Database.Persist.Migration.Internal
   build-depends:      base >= 4.7 && < 5
-                    , persistent >= 2.7 && < 2.8
-                    , text >= 1.2 && < 1.3
+                    , persistent
+                    , text
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances
