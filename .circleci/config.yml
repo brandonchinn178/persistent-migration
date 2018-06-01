@@ -17,9 +17,7 @@ aliases:
   - &install-stack
     run:
       name: Install stack
-      command: |
-        curl -sSL https://get.haskellstack.org/ | sh
-        stack setup
+      command: curl -sSL https://get.haskellstack.org/ | sh
 
   # cache
   - &cache-key
@@ -63,6 +61,7 @@ jobs:
   test:
     <<: *docker-linux
     steps:
+      - checkout
       - attach_workspace:
           at: .
       - *install-stack
