@@ -11,6 +11,7 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Internal where
@@ -19,6 +20,7 @@ import Control.Monad (when)
 import Control.Monad.Reader (ReaderT)
 import Data.List (nub)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Database.Persist.Sql (SqlBackend, rawExecute)
 import Database.Persist.Types (SqlType(..))
 
@@ -37,6 +39,8 @@ data Operation =
 
 -- | An operation nested within another operation.
 data SubOperation = forall m. Migrateable m => SubOperation m
+
+deriving instance Show SubOperation
 
 -- | Create an operation from a suboperation.
 fromSub :: OperationId -> SubOperation -> Operation
@@ -89,7 +93,7 @@ data MigratePlan = MigratePlan
   }
 
 -- | The type class for data types that can be migrated.
-class Migrateable m where
+class Show m => Migrateable m where
   -- | Get the SQL queries to run the migration.
   getMigrationText :: MigrateBackend -> m -> MigrateT IO [Text]
 
@@ -142,13 +146,14 @@ data CreateTable = CreateTable
   { ctName :: Text
   , ctSchema :: [Column]
   , ctConstraints :: [TableConstraint]
-  }
+  } deriving (Show)
 
 instance Migrateable CreateTable where
   getMigrationText = createTable
 
 -- | An operation to drop the given table.
 data DropTable = DropTable Text
+  deriving (Show)
 
 instance Migrateable DropTable where
   getMigrationText = dropTable
@@ -160,7 +165,7 @@ data AddColumn = AddColumn
   , acDefault :: Maybe Text
     -- ^ if the column is non-nullable and doesn't have a default, need to define a default for
     -- existing rows.
-  }
+  } deriving (Show)
 
 instance Migrateable AddColumn where
   getMigrationText = addColumn
@@ -169,19 +174,26 @@ instance Migrateable AddColumn where
 data DropColumn = DropColumn
   { dcTable :: Text
   , dcColumn :: Text
-  }
+  } deriving (Show)
 
 instance Migrateable DropColumn where
   getMigrationText = dropColumn
 
 -- | A custom operation that can be defined manually.
-newtype RawOperation = RawOperation (MigrateT IO [Text])
+data RawOperation = RawOperation
+  { message :: Text
+  , rawOp   :: (MigrateT IO [Text])
+  }
+
+instance Show RawOperation where
+  show RawOperation{message} = "RawOperation: " ++ Text.unpack message
 
 instance Migrateable RawOperation where
-  getMigrationText _ (RawOperation op) = op
+  getMigrationText _ RawOperation{rawOp} = rawOp
 
 -- | A noop operation.
 data NoOp = NoOp
+  deriving (Show)
 
 instance Migrateable NoOp where
   getMigrationText _ NoOp = return []
@@ -215,6 +227,7 @@ setAction action opId' = map setAction'
 -- * Someone who only ran 0 will not run anything
 -- * Someone who ran 0 and 1 will run the AddColumn operation in 2
 data Revert = Revert OperationId [SubOperation]
+  deriving (Show)
 
 instance Migrateable Revert where
   getMigrationText = error "The Revert operation is erroneously in the finalized migration."
@@ -243,6 +256,7 @@ instance Migrateable Revert where
 -- * Someone who ran up to 1 will run 2, but not 3
 -- * Someone who ran up to 2 will not run anything
 data Squash = Squash [OperationId] [SubOperation]
+  deriving (Show)
 
 instance Migrateable Squash where
   getMigrationText = error "The Squash operation is erroneously in the finalized migration."
@@ -263,15 +277,17 @@ data Column = Column
   { colName :: Text
   , colType :: SqlType
   , colProps :: [ColumnProp]
-  }
+  } deriving (Show)
 
 -- | A property for a 'Column'.
 data ColumnProp
   = Nullable -- ^ Makes a 'Column' nullable (defaults to non-nullable)
   | Defaults Text -- ^ Set the default for inserted rows without a value specified for the column
   | ForeignKey (Text, Text) -- ^ Mark this column as a foreign key to the given table.column
+  deriving (Show)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint
   = PrimaryKey [Text] -- ^ PRIMARY KEY (col1, col2, ...)
   | Unique [Text] -- ^ UNIQUE (col1, col2, ...)
+  deriving (Show)

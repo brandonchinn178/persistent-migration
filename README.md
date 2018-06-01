@@ -41,7 +41,8 @@ createPerson = CreateTable
   }
 
 migrateHeight :: RawOperation
-migrateHeight = RawOperation $ rawSql "SELECT id, height FROM person" [] >>= traverse_ migrateHeight'
+migrateHeight = RawOperation "Separate height into height_feet, height_inches" $
+  rawSql "SELECT id, height FROM person" [] >>= traverse_ migrateHeight'
   where
     migrateHeight' (Single id', Single height) = do
       let (feet, inches) = quotRem height 12
