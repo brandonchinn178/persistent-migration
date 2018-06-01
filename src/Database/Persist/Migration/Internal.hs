@@ -17,11 +17,10 @@ Defines a migration framework for the persistent library.
 module Database.Persist.Migration.Internal where
 
 import Control.Monad (when)
-import Control.Monad.Reader (ReaderT)
 import Data.List (nub)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Database.Persist.Sql (SqlBackend, rawExecute)
+import Database.Persist.Sql (SqlPersistT, rawExecute)
 import Database.Persist.Types (SqlType(..))
 
 {- Operation types -}
@@ -51,27 +50,15 @@ fromSub opId (SubOperation opOp) = Operation{..}
 -- | A migration is simply a list of operations.
 type Migration = [Operation]
 
--- | The type for the underlying operation.
---
--- RawOperations should primarily use 'rawSql' and 'rawExecute' from the persistent library. If the
--- operation depends on the backend being run, query 'connRDBMS' from the 'SqlBackend':
---
--- @
--- asks connRDBMS >>= \case
---   "sqlite" -> ...
---   _ -> return ()
--- @
-type MigrateT m a = ReaderT SqlBackend m a
-
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
-  { setupMigrations :: MigrateT IO ()
-  , getCompletedOps :: MigrateT IO [OperationId]
-  , saveMigration :: Migration -> MigrateT IO ()
-  , createTable :: CreateTable -> MigrateT IO [Text]
-  , dropTable :: DropTable -> MigrateT IO [Text]
-  , addColumn :: AddColumn -> MigrateT IO [Text]
-  , dropColumn :: DropColumn -> MigrateT IO [Text]
+  { setupMigrations :: SqlPersistT IO ()
+  , getCompletedOps :: SqlPersistT IO [OperationId]
+  , saveMigration :: Migration -> SqlPersistT IO ()
+  , createTable :: CreateTable -> SqlPersistT IO [Text]
+  , dropTable :: DropTable -> SqlPersistT IO [Text]
+  , addColumn :: AddColumn -> SqlPersistT IO [Text]
+  , dropColumn :: DropColumn -> SqlPersistT IO [Text]
   }
 
 -- | An action for an operation in a MigratePlan.
@@ -95,7 +82,7 @@ data MigratePlan = MigratePlan
 -- | The type class for data types that can be migrated.
 class Show m => Migrateable m where
   -- | Get the SQL queries to run the migration.
-  getMigrationText :: MigrateBackend -> m -> MigrateT IO [Text]
+  getMigrationText :: MigrateBackend -> m -> SqlPersistT IO [Text]
 
   -- | Given the tentative migration and the operations left to process, return the updated
   -- tentative migration and the possibly modified todo list.
@@ -107,14 +94,14 @@ modifyMigration' :: Operation -> MigratePlan -> MigratePlan
 modifyMigration' op@Operation{opOp} = modifyMigration opOp op
 
 -- | Run the given migration. After successful completion, saves the migration to the database.
-runMigration :: MigrateBackend -> Migration -> MigrateT IO ()
+runMigration :: MigrateBackend -> Migration -> SqlPersistT IO ()
 runMigration backend migration = do
   migrateQueries <- getMigration backend migration
   mapM_ (\s -> rawExecute s []) migrateQueries
   saveMigration backend migration
 
 -- | Get the SQL queries for the given migration.
-getMigration :: MigrateBackend -> Migration -> MigrateT IO [Text]
+getMigration :: MigrateBackend -> Migration -> SqlPersistT IO [Text]
 getMigration backend migration = do
   when (hasDuplicates $ map opId migration) $
     fail "Migration has multiple operations with the same ID"
@@ -152,7 +139,9 @@ instance Migrateable CreateTable where
   getMigrationText = createTable
 
 -- | An operation to drop the given table.
-data DropTable = DropTable Text
+newtype DropTable = DropTable
+  { dtName :: Text
+  }
   deriving (Show)
 
 instance Migrateable DropTable where
@@ -180,9 +169,18 @@ instance Migrateable DropColumn where
   getMigrationText = dropColumn
 
 -- | A custom operation that can be defined manually.
+--
+-- RawOperations should primarily use 'rawSql' and 'rawExecute' from the persistent library. If the
+-- operation depends on the backend being run, query 'connRDBMS' from the 'SqlBackend':
+--
+-- @
+-- asks connRDBMS >>= \case
+--   "sqlite" -> ...
+--   _ -> return ()
+-- @
 data RawOperation = RawOperation
   { message :: Text
-  , rawOp   :: (MigrateT IO [Text])
+  , rawOp   :: SqlPersistT IO [Text]
   }
 
 instance Show RawOperation where

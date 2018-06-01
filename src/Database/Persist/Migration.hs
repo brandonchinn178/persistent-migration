@@ -14,7 +14,6 @@ module Database.Persist.Migration
   , SubOperation(..)
   -- * Migration types
   , Migration
-  , MigrateT
   , MigrateBackend(..)
   , Migrateable(..)
   , MigrateAction(..)
@@ -44,7 +43,7 @@ import Database.Persist.Migration.Internal
 import qualified Database.Persist.Sql as Persistent
 
 -- | Fails if the persistent library detects more migrations unaccounted for.
-checkMigration :: Persistent.Migration -> MigrateT IO ()
+checkMigration :: Persistent.Migration -> Persistent.SqlPersistT IO ()
 checkMigration migration = do
   migrationText <- Persistent.showMigration migration
   unless (null migrationText) $ fail $

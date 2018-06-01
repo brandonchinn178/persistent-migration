@@ -26,15 +26,15 @@ import Database.Persist.Sql (PersistValue(..), rawExecute, rawSql)
 
 createPerson :: CreateTable
 createPerson = CreateTable
-  { name = "person"
-  , schema =
+  { ctName = "person"
+  , ctSchema =
       [ Column "id" SqlInt32 []
       , Column "name" SqlString []
       , Column "age" SqlInt32 []
       , Column "alive" SqlBool [Defaults "TRUE"]
       , Column "hometown" SqlInt64 [Nullable, ForeignKey ("cities", "id")]
       ]
-  , constraints =
+  , ctConstraints =
       [ PrimaryKey ["id"]
       , Unique ["name"]
       ]
@@ -55,18 +55,18 @@ migrateHeight = RawOperation "Separate height into height_feet, height_inches" $
 migration :: Migration
 migration =
   -- version 1
-  [ Operation 0 $ createPerson)
+  [ Operation 0 $ createPerson
 
   -- version 2
-  , Operation 1 $ AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing)
+  , Operation 1 $ AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing
   -- Non-null column without default for inserted rows needs a default for existing rows.
-  , Operation 2 $ AddColumn "person" (Column "height" SqlInt32 []) (Just "0"))
+  , Operation 2 $ AddColumn "person" (Column "height" SqlInt32 []) (Just "0")
 
   -- version 3
-  , Operation 3 $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0"))
-  , Operation 4 $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0"))
-  , Operation 5 $ migrateHeight)
-  , Operation 6 $ DropColumn "person" "height")
+  , Operation 3 $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0")
+  , Operation 4 $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0")
+  , Operation 5 $ migrateHeight
+  , Operation 6 $ DropColumn "person" "height"
   ]
 ```
 

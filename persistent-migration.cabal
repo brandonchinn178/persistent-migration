@@ -16,14 +16,32 @@ source-repository head
   location: https://github.com/brandonchinn178/persistent-migration.git
 
 library
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  exposed-modules:     Database.Persist.Migration
-  other-modules:       Database.Persist.Migration.Internal
-  build-depends:       base >= 4.7 && < 5
-                     , mtl >= 2.2 && < 2.3
-                     , persistent >= 2.7.1 && < 2.9
-                     , text >= 1.2 && < 1.3
+  hs-source-dirs:     src
+  default-language:   Haskell2010
+  exposed-modules:    Database.Persist.Migration
+  other-modules:      Database.Persist.Migration.Internal
+  build-depends:      base >= 4.7 && < 5
+                    , persistent >= 2.7 && < 2.8
+                    , text >= 1.2 && < 1.3
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
+    -Wredundant-constraints -Wnoncanonical-monad-instances
+
+test-suite persistent-migration-test
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  default-language:   Haskell2010
+  main-is:            Main.hs
+  other-modules:      Database.Persist.MigrationTest
+                      Database.Persist.TestUtils
+  build-depends: base
+               , hspec-expectations
+               , mtl
+               , persistent
+               , persistent-migration
+               , tasty
+               , tasty-discover
+               , tasty-hunit
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances
