@@ -65,6 +65,8 @@ jobs:
       - attach_workspace:
           at: .
       - *install-stack
+      - restore_cache:
+          key: *cache-key
       - *run-test
 
 workflows:
