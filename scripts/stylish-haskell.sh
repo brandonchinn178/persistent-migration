@@ -17,7 +17,7 @@ for arg in "$@"; do
 done
 
 function get_files() {
-    git ls-files | grep .hs$
+    find . -path ./.stack-work -prune -o -name "*.hs" -print
 }
 
 function diff_no_fail() {
