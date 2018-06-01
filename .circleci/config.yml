@@ -1,0 +1,45 @@
+version: 2
+
+aliases:
+  - &docker-ubuntu
+    docker:
+      - image: circleci/build-image:ubuntu-14.04-XXL-1327-3401d20
+    working_directory: /root/src
+  - &install-stack
+    run:
+      name: Install stack
+      command: |
+        curl -sSL https://get.haskellstack.org/ | sh
+        stack setup
+  - &run-build
+    run: stack build
+  - &run-test
+    run: stack test
+
+jobs:
+  build:
+    <<: *docker-ubuntu
+    steps:
+      - checkout
+      - *install-stack
+      - *run-build
+      - persist_to_workspace:
+          root: .
+          paths:
+              - .stack-work
+              - ~/.stack
+              - /usr/local/bin/stack
+  test:
+    docker:
+      - image: *docker-ubuntu
+    steps:
+      - attach_workspace:
+          at: .
+      - *run-test
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - test
