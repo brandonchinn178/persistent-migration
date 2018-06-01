@@ -19,6 +19,7 @@ library
   hs-source-dirs:     src
   default-language:   Haskell2010
   exposed-modules:    Database.Persist.Migration
+                      Database.Persist.Migration.Sqlite
   other-modules:      Database.Persist.Migration.Internal
   build-depends:      base >= 4.7 && < 5
                     , persistent
