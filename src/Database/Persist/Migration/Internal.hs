@@ -15,10 +15,11 @@ Defines a migration framework for the persistent library.
 
 module Database.Persist.Migration.Internal where
 
+import Control.Monad (when)
 import Control.Monad.Reader (ReaderT)
+import Data.List (nub)
 import Data.Text (Text)
-import Database.Persist.Class (BackendCompatible)
-import Database.Persist.Sql (SqlBackend)
+import Database.Persist.Sql (SqlBackend, rawExecute)
 import Database.Persist.Types (SqlType(..))
 
 {- Operation types -}
@@ -56,11 +57,14 @@ type Migration = [Operation]
 --   "sqlite" -> ...
 --   _ -> return ()
 -- @
-type MigrateT m a = forall backend. BackendCompatible SqlBackend backend => ReaderT backend m a
+type MigrateT m a = ReaderT SqlBackend m a
 
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
-  { createTable :: CreateTable -> MigrateT IO [Text]
+  { setupMigrations :: MigrateT IO ()
+  , getCompletedOps :: MigrateT IO [OperationId]
+  , saveMigration :: Migration -> MigrateT IO ()
+  , createTable :: CreateTable -> MigrateT IO [Text]
   , dropTable :: DropTable -> MigrateT IO [Text]
   , addColumn :: AddColumn -> MigrateT IO [Text]
   , dropColumn :: DropColumn -> MigrateT IO [Text]
@@ -98,19 +102,38 @@ class Migrateable m where
 modifyMigration' :: Operation -> MigratePlan -> MigratePlan
 modifyMigration' op@Operation{opOp} = modifyMigration opOp op
 
--- | Finalize the migration plan.
-finalizeMigratePlan :: MigratePlan -> MigratePlan
-finalizeMigratePlan migratePlan = helper migratePlan
-  where
-    helper migratePlan' = case todo migratePlan' of
-      [] -> migratePlan'
-      (op:todo') -> helper $ modifyMigration' op migratePlan'{todo = todo'}
+-- | Run the given migration. After successful completion, saves the migration to the database.
+runMigration :: MigrateBackend -> Migration -> MigrateT IO ()
+runMigration backend migration = do
+  migrateQueries <- getMigration backend migration
+  mapM_ (\s -> rawExecute s []) migrateQueries
+  saveMigration backend migration
 
 -- | Get the SQL queries for the given migration.
 getMigration :: MigrateBackend -> Migration -> MigrateT IO [Text]
-getMigration backend = fmap concat . mapM helper -- TODO: finalizeMigratePlan
+getMigration backend migration = do
+  when (hasDuplicates $ map opId migration) $
+    fail "Migration has multiple operations with the same ID"
+  setupMigrations backend
+  doneOps <- getCompletedOps backend
+  let migratePlan = MigratePlan
+        { original = migration
+        , plan = map (\op -> if opId op `elem` doneOps then (DONE, op) else (RUN, op)) migration
+        , todo = migration
+        }
+  concatMapM getMigrationText' . fromMigratePlan . finalizeMigratePlan $ migratePlan
   where
-    helper (Operation _ op) = getMigrationText backend op
+    -- Utilities
+    hasDuplicates l = length (nub l) /= length l
+    concatMapM f = fmap concat . mapM f
+    -- MigratePlan helpers
+    finalizeMigratePlan migratePlan =
+      case todo migratePlan of
+        [] -> migratePlan
+        (op:todo') -> finalizeMigratePlan $ modifyMigration' op migratePlan{todo = todo'}
+    fromMigratePlan = map snd . filter ((== RUN) . fst) . plan
+    -- Operation helpers
+    getMigrationText' Operation{opOp} = getMigrationText backend opOp
 
 {- Core Operations -}
 

@@ -20,6 +20,7 @@ module Database.Persist.Migration
   , MigrateAction(..)
   , MigratePlan(..)
   -- * Migration functions
+  , runMigration
   , getMigration
   -- * Core operations
   , CreateTable(..)
