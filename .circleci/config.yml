@@ -1,9 +1,9 @@
 version: 2
 
 aliases:
-  - &docker-ubuntu
+  - &docker-linux
     docker:
-      - image: circleci/build-image:ubuntu-14.04-XXL-1327-3401d20
+      - image: centos:7
     working_directory: /root/src
   - &install-stack
     run:
@@ -22,7 +22,7 @@ aliases:
 
 jobs:
   build:
-    <<: *docker-ubuntu
+    <<: *docker-linux
     steps:
       - checkout
       - *install-stack
@@ -32,7 +32,7 @@ jobs:
           paths:
               - .stack-work
   test:
-    <<: *docker-ubuntu
+    <<: *docker-linux
     steps:
       - attach_workspace:
           at: .
