@@ -322,7 +322,7 @@ data Column = Column
 
 -- | A property for a 'Column'.
 data ColumnProp
-  = Nullable -- ^ Makes a 'Column' nullable (defaults to non-nullable)
+  = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
   | Defaults Text -- ^ Set the default for inserted rows without a value specified for the column
   | ForeignKey (Text, Text) -- ^ Mark this column as a foreign key to the given table.column
   deriving (Show)

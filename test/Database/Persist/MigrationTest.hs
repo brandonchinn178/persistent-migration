@@ -23,17 +23,17 @@ unit_basic_migration = getTestMigration migration `shouldReturn` migrationText
             { ctName = "person"
             , ctSchema =
                 [ Column "id" SqlInt32 []
-                , Column "name" SqlString []
-                , Column "age" SqlInt32 []
-                , Column "alive" SqlBool [Defaults "TRUE"]
-                , Column "hometown" SqlInt64 [Nullable, ForeignKey ("cities", "id")]
+                , Column "name" SqlString [NotNull]
+                , Column "age" SqlInt32 [NotNull]
+                , Column "alive" SqlBool [NotNull, Defaults "TRUE"]
+                , Column "hometown" SqlInt64 [ForeignKey ("cities", "id")]
                 ]
             , ctConstraints =
                 [ PrimaryKey ["id"]
                 , Unique ["name"]
                 ]
             }
-      , Operation 1 $ AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing
+      , Operation 1 $ AddColumn "person" (Column "gender" SqlString []) Nothing
       , Operation 2 $ DropColumn "person" "alive"
       , Operation 3 $ DropTable "person"
       ]
