@@ -19,6 +19,8 @@ Defines a migration framework for the persistent library.
 module Database.Persist.Migration.Internal where
 
 import Control.Monad (forM_, when)
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader (mapReaderT)
 import Data.List (nub)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -33,16 +35,16 @@ type OperationId = Int
 
 -- | An operation that can be migrated.
 data Operation =
-  forall m. Migrateable m =>
+  forall op. Migrateable op =>
   Operation
     { opId :: OperationId
-    , opOp :: m
+    , opOp :: op
     }
 
 deriving instance Show Operation
 
 -- | An operation nested within another operation.
-data SubOperation = forall m. Migrateable m => SubOperation m
+data SubOperation = forall op. Migrateable op => SubOperation op
 
 deriving instance Show SubOperation
 
@@ -78,13 +80,13 @@ data MigratePlan = MigratePlan
   }
 
 -- | The type class for data types that can be migrated.
-class Show m => Migrateable m where
+class Show op => Migrateable op where
   -- | Get the SQL queries to run the migration.
-  getMigrationText :: MigrateBackend -> m -> SqlPersistT IO [Text]
+  getMigrationText :: MigrateBackend -> op -> SqlPersistT IO [Text]
 
   -- | Given the tentative migration and the operations left to process, return the updated
   -- tentative migration and the possibly modified todo list.
-  modifyMigration :: m -> Operation -> MigratePlan -> MigratePlan
+  modifyMigration :: op -> Operation -> MigratePlan -> MigratePlan
   modifyMigration _ _ = id
 
 -- | Modify the migration according to the given operation.
@@ -96,21 +98,10 @@ getUnfinishedOps :: [OperationPlan] -> [Operation]
 getUnfinishedOps = map snd . filter ((/= DONE) . fst)
 
 -- | Get the migrate plan for the given migration.
-getMigratePlan :: MigrateBackend -> Migration -> SqlPersistT IO MigratePlan
+getMigratePlan :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m MigratePlan
 getMigratePlan backend migration = do
   -- create the persistent_migration table if it doesn't already exist
-  rawExecute' =<< createTable backend True
-    CreateTable
-      { ctName = "persistent_migration"
-      , ctSchema =
-          [ Column "id" SqlInt32 []
-          , Column "opId" SqlInt32 []
-          , Column "operation" SqlString []
-          ]
-      , ctConstraints =
-          [ PrimaryKey ["id"]
-          ]
-      }
+  rawExecute' =<< mapReaderT liftIO (createTable backend True migrationSchema)
 
   -- get all of the operation IDs in the database
   doneOps <- map unSingle <$> rawSql "SELECT opId FROM persistent_migration" []
@@ -123,13 +114,24 @@ getMigratePlan backend migration = do
       , todo = getUnfinishedOps opPlans
       }
   where
+    migrationSchema = CreateTable
+      { ctName = "persistent_migration"
+      , ctSchema =
+          [ Column "id" SqlInt32 []
+          , Column "opId" SqlInt32 []
+          , Column "operation" SqlString []
+          ]
+      , ctConstraints =
+          [ PrimaryKey ["id"]
+          ]
+      }
     finalizeMigratePlan migratePlan =
       case todo migratePlan of
         [] -> migratePlan
         (op:todo') -> finalizeMigratePlan $ modifyMigration' op migratePlan{todo = todo'}
 
 -- | Run the given migration. After successful completion, saves the migration to the database.
-runMigration :: MigrateBackend -> Migration -> SqlPersistT IO ()
+runMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m ()
 runMigration backend migration = do
   migratePlan <- getMigratePlan backend migration
   getMigration' backend migration migratePlan >>= rawExecute'
@@ -140,12 +142,12 @@ runMigration backend migration = do
       ]
 
 -- | Get the SQL queries for the given migration.
-getMigration :: MigrateBackend -> Migration -> SqlPersistT IO [Text]
+getMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m [Text]
 getMigration backend migration =
   getMigratePlan backend migration >>= getMigration' backend migration
 
 -- | Get the migration for the given MigrateBackend.
-getMigration' :: MigrateBackend -> Migration -> MigratePlan -> SqlPersistT IO [Text]
+getMigration' :: MonadIO m => MigrateBackend -> Migration -> MigratePlan -> SqlPersistT m [Text]
 getMigration' backend migration migratePlan = do
   when (hasDuplicates $ map opId migration) $
     fail "Migration has multiple operations with the same ID"
@@ -157,10 +159,10 @@ getMigration' backend migration migratePlan = do
     -- MigratePlan helpers
     fromMigratePlan = map snd . filter ((== RUN) . fst) . plan
     -- Operation helpers
-    getMigrationText' Operation{opOp} = getMigrationText backend opOp
+    getMigrationText' Operation{opOp} = mapReaderT liftIO $ getMigrationText backend opOp
 
 -- | Execute the given SQL strings.
-rawExecute' :: [Text] -> SqlPersistT IO ()
+rawExecute' :: MonadIO m => [Text] -> SqlPersistT m ()
 rawExecute' = mapM_ $ \s -> rawExecute s []
 
 {- Core Operations -}

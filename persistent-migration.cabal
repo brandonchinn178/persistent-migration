@@ -23,6 +23,7 @@ library
   other-modules:      Database.Persist.Migration.Internal
   build-depends:      base >= 4.7 && < 5
                     , persistent
+                    , mtl
                     , text
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
