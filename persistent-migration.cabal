@@ -21,6 +21,7 @@ library
   exposed-modules:    Database.Persist.Migration
                       Database.Persist.Migration.Sqlite
   other-modules:      Database.Persist.Migration.Internal
+                      Database.Persist.Migration.Sql
   build-depends:      base >= 4.7 && < 5
                     , persistent
                     , mtl
