@@ -36,6 +36,8 @@ test-suite persistent-migration-test
   other-modules:      Database.Persist.MigrationTest
                       Database.Persist.TestUtils
   build-depends: base
+               , conduit
+               , containers
                , hspec-expectations
                , mtl
                , persistent

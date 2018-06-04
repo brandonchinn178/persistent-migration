@@ -9,18 +9,21 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Internal where
 
-import Control.Monad (when)
+import Control.Monad (forM_, when)
 import Data.List (nub)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Database.Persist.Sql (SqlPersistT, rawExecute)
+import Database.Persist.Sql
+    (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
 
 {- Operation types -}
@@ -50,16 +53,11 @@ type Migration = [Operation]
 
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
-  { setupMigrations :: SqlPersistT IO ()
-      -- ^ set up the migration table if it hasn't been already
-  , getCompletedOps :: SqlPersistT IO [OperationId]
-      -- ^ get a list of operation IDs that have already been completed
-  , saveMigration   :: Migration -> SqlPersistT IO ()
-      -- ^ save the operations in the given migration to the database as completed
-  , createTable     :: CreateTable -> SqlPersistT IO [Text]
-  , dropTable       :: DropTable -> SqlPersistT IO [Text]
-  , addColumn       :: AddColumn -> SqlPersistT IO [Text]
-  , dropColumn      :: DropColumn -> SqlPersistT IO [Text]
+  { createTable :: Bool -> CreateTable -> SqlPersistT IO [Text]
+      -- ^ create a table (True = IF EXISTS)
+  , dropTable   :: DropTable -> SqlPersistT IO [Text]
+  , addColumn   :: AddColumn -> SqlPersistT IO [Text]
+  , dropColumn  :: DropColumn -> SqlPersistT IO [Text]
   }
 
 -- | An action for an operation in a MigratePlan.
@@ -93,38 +91,77 @@ class Show m => Migrateable m where
 modifyMigration' :: Operation -> MigratePlan -> MigratePlan
 modifyMigration' op@Operation{opOp} = modifyMigration opOp op
 
+-- | Get all operations that are not DONE from the given operation plans.
+getUnfinishedOps :: [OperationPlan] -> [Operation]
+getUnfinishedOps = map snd . filter ((/= DONE) . fst)
+
+-- | Get the migrate plan for the given migration.
+getMigratePlan :: MigrateBackend -> Migration -> SqlPersistT IO MigratePlan
+getMigratePlan backend migration = do
+  -- create the persistent_migration table if it doesn't already exist
+  rawExecute' =<< createTable backend True
+    CreateTable
+      { ctName = "persistent_migration"
+      , ctSchema =
+          [ Column "id" SqlInt32 []
+          , Column "opId" SqlInt32 []
+          , Column "operation" SqlString []
+          ]
+      , ctConstraints =
+          [ PrimaryKey ["id"]
+          ]
+      }
+
+  -- get all of the operation IDs in the database
+  doneOps <- map unSingle <$> rawSql "SELECT opId FROM persistent_migration" []
+  let opPlans = map (\op -> if opId op `elem` doneOps then (DONE, op) else (RUN, op)) migration
+
+  return $ finalizeMigratePlan
+    MigratePlan
+      { original = migration
+      , plan = opPlans
+      , todo = getUnfinishedOps opPlans
+      }
+  where
+    finalizeMigratePlan migratePlan =
+      case todo migratePlan of
+        [] -> migratePlan
+        (op:todo') -> finalizeMigratePlan $ modifyMigration' op migratePlan{todo = todo'}
+
 -- | Run the given migration. After successful completion, saves the migration to the database.
 runMigration :: MigrateBackend -> Migration -> SqlPersistT IO ()
 runMigration backend migration = do
-  migrateQueries <- getMigration backend migration
-  mapM_ (\s -> rawExecute s []) migrateQueries
-  saveMigration backend migration
+  migratePlan <- getMigratePlan backend migration
+  getMigration' backend migration migratePlan >>= rawExecute'
+  forM_ (getUnfinishedOps $ plan migratePlan) $ \Operation{..} ->
+    rawExecute "INSERT INTO persistent_migration VALUES (?, ?)"
+      [ PersistInt64 $ fromIntegral opId
+      , PersistText $ Text.pack $ show opOp
+      ]
 
 -- | Get the SQL queries for the given migration.
 getMigration :: MigrateBackend -> Migration -> SqlPersistT IO [Text]
-getMigration backend migration = do
+getMigration backend migration =
+  getMigratePlan backend migration >>= getMigration' backend migration
+
+-- | Get the migration for the given MigrateBackend.
+getMigration' :: MigrateBackend -> Migration -> MigratePlan -> SqlPersistT IO [Text]
+getMigration' backend migration migratePlan = do
   when (hasDuplicates $ map opId migration) $
     fail "Migration has multiple operations with the same ID"
-  setupMigrations backend
-  doneOps <- getCompletedOps backend
-  let migratePlan = MigratePlan
-        { original = migration
-        , plan = map (\op -> if opId op `elem` doneOps then (DONE, op) else (RUN, op)) migration
-        , todo = migration
-        }
-  concatMapM getMigrationText' . fromMigratePlan . finalizeMigratePlan $ migratePlan
+  concatMapM getMigrationText' . fromMigratePlan $ migratePlan
   where
     -- Utilities
     hasDuplicates l = length (nub l) /= length l
     concatMapM f = fmap concat . mapM f
     -- MigratePlan helpers
-    finalizeMigratePlan migratePlan =
-      case todo migratePlan of
-        [] -> migratePlan
-        (op:todo') -> finalizeMigratePlan $ modifyMigration' op migratePlan{todo = todo'}
     fromMigratePlan = map snd . filter ((== RUN) . fst) . plan
     -- Operation helpers
     getMigrationText' Operation{opOp} = getMigrationText backend opOp
+
+-- | Execute the given SQL strings.
+rawExecute' :: [Text] -> SqlPersistT IO ()
+rawExecute' = mapM_ $ \s -> rawExecute s []
 
 {- Core Operations -}
 
@@ -136,7 +173,7 @@ data CreateTable = CreateTable
   } deriving (Show)
 
 instance Migrateable CreateTable where
-  getMigrationText = createTable
+  getMigrationText backend = createTable backend False
 
 -- | An operation to drop the given table.
 newtype DropTable = DropTable

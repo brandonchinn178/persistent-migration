@@ -21,7 +21,6 @@ import Database.Persist.Migration.Internal
     , DropTable(..)
     , MigrateBackend(..)
     , Migration
-    , OperationId
     )
 import qualified Database.Persist.Migration.Internal as Migration
 import Database.Persist.Sql (SqlPersistT)
@@ -37,25 +36,13 @@ getMigration = Migration.getMigration backend
 -- | The SQLite migration backend.
 backend :: MigrateBackend
 backend = MigrateBackend
-  { setupMigrations = setupMigrations'
-  , getCompletedOps = getCompletedOps'
-  , saveMigration = saveMigration'
-  , createTable = createTable'
+  { createTable = createTable'
   , dropTable = dropTable'
   , addColumn = addColumn'
   , dropColumn = dropColumn'
   }
 
-setupMigrations' :: SqlPersistT IO ()
-setupMigrations' = undefined
-
-getCompletedOps' :: SqlPersistT IO [OperationId]
-getCompletedOps' = undefined
-
-saveMigration' :: Migration -> SqlPersistT IO ()
-saveMigration' = undefined
-
-createTable' :: CreateTable -> SqlPersistT IO [Text]
+createTable' :: Bool -> CreateTable -> SqlPersistT IO [Text]
 createTable' = undefined
 
 dropTable' :: DropTable -> SqlPersistT IO [Text]
