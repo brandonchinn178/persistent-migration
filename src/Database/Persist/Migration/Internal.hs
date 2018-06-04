@@ -136,7 +136,7 @@ runMigration backend migration = do
   migratePlan <- getMigratePlan backend migration
   getMigration' backend migration migratePlan >>= rawExecute'
   forM_ (getUnfinishedOps $ plan migratePlan) $ \Operation{..} ->
-    rawExecute "INSERT INTO persistent_migration VALUES (?, ?)"
+    rawExecute "INSERT INTO persistent_migration(opId, operation) VALUES (?, ?)"
       [ PersistInt64 $ fromIntegral opId
       , PersistText $ Text.pack $ show opOp
       ]
