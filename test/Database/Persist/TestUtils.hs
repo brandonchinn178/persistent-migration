@@ -38,8 +38,8 @@ modifyTestBackend = modifyIORef testBackend
 -- | A mock migration backend for testing.
 testMigrateBackend :: MigrateBackend
 testMigrateBackend = MigrateBackend
-  { createTable = \ifExists CreateTable{ctName} ->
-      return ["CREATE TABLE " <> (if ifExists then "IF EXISTS " else "") <> ctName]
+  { createTable = \ifNotExists CreateTable{ctName} ->
+      return ["CREATE TABLE " <> (if ifNotExists then "IF NOT EXISTS " else "") <> ctName]
   , dropTable = \DropTable{dtName} ->
       return ["DROP TABLE " <> dtName]
   , addColumn = \AddColumn{acTable, acColumn} ->
@@ -56,7 +56,7 @@ initSqlBackend = do
   smap <- newIORef Map.empty
   return SqlBackend
     { connPrepare = \case
-        "CREATE TABLE IF EXISTS persistent_migration" -> return stmt
+        "CREATE TABLE IF NOT EXISTS persistent_migration" -> return stmt
         "SELECT opId FROM persistent_migration" -> do
           TestBackend{doneOps} <- readIORef testBackend
           let result = map (pure . PersistInt64 . fromIntegral) doneOps

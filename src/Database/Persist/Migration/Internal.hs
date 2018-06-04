@@ -54,7 +54,7 @@ type Migration = [Operation]
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
   { createTable :: Bool -> CreateTable -> SqlPersistT IO [Text]
-      -- ^ create a table (True = IF EXISTS)
+      -- ^ create a table (True = IF NOT EXISTS)
   , dropTable   :: DropTable -> SqlPersistT IO [Text]
   , addColumn   :: AddColumn -> SqlPersistT IO [Text]
   , dropColumn  :: DropColumn -> SqlPersistT IO [Text]
