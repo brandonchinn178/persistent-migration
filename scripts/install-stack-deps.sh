@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Install third-party dependencies.
+# Install third-party stack dependencies.
 
 set -eo pipefail
 

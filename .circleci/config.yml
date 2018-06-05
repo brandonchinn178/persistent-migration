@@ -11,9 +11,7 @@ aliases:
   - &install-deps
     run:
       name: Install system dependencies
-      command: |
-        yum update -y --exclude=filesystem
-        yum install -y zlib-devel
+      command: scripts/install-system-deps.sh
   - &install-stack
     run:
       name: Install stack
