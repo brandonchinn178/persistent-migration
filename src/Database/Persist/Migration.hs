@@ -32,6 +32,8 @@ module Database.Persist.Migration
   , Squash(..)
   , NoOp(..)
   -- * Auxiliary types
+  , ColumnIdentifier
+  , dotted
   , Column(..)
   , ColumnProp(..)
   , TableConstraint(..)

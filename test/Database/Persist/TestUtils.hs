@@ -43,12 +43,10 @@ testMigrateBackend = MigrateBackend
   , dropTable = \DropTable{dtName} ->
       return ["DROP TABLE " <> dtName]
   , addColumn = \AddColumn{acTable, acColumn} ->
-      return ["ADD COLUMN " <> dot acTable (colName acColumn)]
-  , dropColumn = \DropColumn{dcTable, dcColumn} ->
-      return ["DROP COLUMN " <> dot dcTable dcColumn]
+      return ["ADD COLUMN " <> dotted (acTable, colName acColumn)]
+  , dropColumn = \DropColumn{dcColumn} ->
+      return ["DROP COLUMN " <> dotted dcColumn]
   }
-  where
-    dot tab col = tab <> "." <> col
 
 -- | Initialize a mock backend database for testing.
 initSqlBackend :: IO SqlBackend

@@ -34,7 +34,7 @@ unit_basic_migration = getTestMigration migration `shouldReturn` migrationText
                 ]
             }
       , Operation 1 $ AddColumn "person" (Column "gender" SqlString []) Nothing
-      , Operation 2 $ DropColumn "person" "alive"
+      , Operation 2 $ DropColumn ("person", "alive")
       , Operation 3 $ DropTable "person"
       ]
     migrationText =

@@ -22,6 +22,8 @@ import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
 import Data.List (nub)
+import Data.Maybe (isNothing)
+import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Sql
@@ -196,12 +198,14 @@ data AddColumn = AddColumn
   } deriving (Show)
 
 instance Migrateable AddColumn where
-  getMigrationText = addColumn
+  getMigrationText backend ac@AddColumn{..} = do
+    when (isNotNullAndNoDefault acColumn && isNothing acDefault) $
+      fail $ Text.unpack $ "A non-nullable column requires a default: " <> colName acColumn
+    addColumn backend ac
 
 -- | An operation to drop the given column to an existing table.
-data DropColumn = DropColumn
-  { dcTable  :: Text
-  , dcColumn :: Text
+newtype DropColumn = DropColumn
+  { dcColumn :: ColumnIdentifier
   } deriving (Show)
 
 instance Migrateable DropColumn where
@@ -315,6 +319,13 @@ instance Migrateable Squash where
 
 {- Auxiliary types -}
 
+-- | A column identifier, table.column
+type ColumnIdentifier = (Text, Text)
+
+-- | Make a ColumnIdentifier displayable.
+dotted :: ColumnIdentifier -> Text
+dotted (tab, col) = tab <> "." <> col
+
 -- | The definition for a Column in a SQL database.
 data Column = Column
   { colName  :: Text
@@ -322,12 +333,19 @@ data Column = Column
   , colProps :: [ColumnProp]
   } deriving (Show)
 
+-- | Return whether the given column is NOT NULL and doesn't have a default specified.
+isNotNullAndNoDefault :: Column -> Bool
+isNotNullAndNoDefault Column{..} = NotNull `elem` colProps && any isDefault colProps
+  where
+    isDefault (Defaults _) = True
+    isDefault _ = False
+
 -- | A property for a 'Column'.
 data ColumnProp
   = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
   | Defaults Text -- ^ Set the default for inserted rows without a value specified for the column
-  | ForeignKey (Text, Text) -- ^ Mark this column as a foreign key to the given table.column
-  deriving (Show)
+  | ForeignKey ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
+  deriving (Show,Eq)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint
