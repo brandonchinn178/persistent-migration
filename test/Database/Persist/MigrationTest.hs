@@ -72,26 +72,3 @@ unit_all_done = withTestBackend $ do
       [ Operation 0 $ CreateTable "person" [] []
       , Operation 1 $ DropTable "person"
       ]
-
-unit_revert_no_run :: Expectation
-unit_revert_no_run = getTestMigration migration `shouldReturn` []
-  where
-    migration =
-      [ Operation 0 $ CreateTable "person" [] []
-      , Operation 1 $ Revert 0
-          [ SubOperation $ DropTable "person"
-          ]
-      ]
-
-unit_revert_run :: Expectation
-unit_revert_run = withTestBackend $ do
-  modifyTestBackend $ \backend -> backend{doneOps = [0]}
-  getTestMigration migration `shouldReturn` migrationText
-  where
-    migration =
-      [ Operation 0 $ CreateTable "person" [] []
-      , Operation 1 $ Revert 0
-          [ SubOperation $ DropTable "person"
-          ]
-      ]
-    migrationText = ["DROP TABLE person"]

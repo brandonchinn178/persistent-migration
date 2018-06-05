@@ -13,7 +13,6 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Internal where
@@ -45,11 +44,6 @@ data Operation =
 
 deriving instance Show Operation
 
--- | An operation nested within another operation.
-data SubOperation = forall op. Migrateable op => SubOperation op
-
-deriving instance Show SubOperation
-
 {- Migration types -}
 
 -- | A migration is simply a list of operations.
@@ -66,10 +60,8 @@ data MigrateBackend = MigrateBackend
 
 -- | An action for an operation in a MigratePlan.
 data MigrateAction
-  = DONE     -- ^ The operation was already done in a previous migration
-  | RUN      -- ^ The operation should be run in this migration
-  | REVERTED -- ^ The operation was reverted by another operation
-  | SQUASHED -- ^ The operation was squashed by another operation
+  = DONE -- ^ The operation was already done in a previous migration
+  | RUN  -- ^ The operation should be run in this migration
   deriving (Eq,Show)
 
 type OperationPlan = (MigrateAction, Operation)
@@ -78,7 +70,6 @@ type OperationPlan = (MigrateAction, Operation)
 data MigratePlan = MigratePlan
   { original :: Migration -- ^ The original, full migration defined by the user
   , plan     :: [OperationPlan] -- ^ The tentative list of operations
-  , todo     :: [Operation] -- ^ The unprocessed list of operations to add to plan
   }
 
 -- | The type class for data types that can be migrated.
@@ -86,18 +77,9 @@ class Show op => Migrateable op where
   -- | Get the SQL queries to run the migration.
   getMigrationText :: MigrateBackend -> op -> SqlPersistT IO [Text]
 
-  -- | Given the tentative migration and the operations left to process, return the updated
-  -- tentative migration and the possibly modified todo list.
-  modifyMigration :: op -> Operation -> MigratePlan -> MigratePlan
-  modifyMigration _ _ = id
-
--- | Modify the migration according to the given operation.
-modifyMigration' :: Operation -> MigratePlan -> MigratePlan
-modifyMigration' op@Operation{opOp} = modifyMigration opOp op
-
--- | Get all operations that are not DONE from the given operation plans.
-getUnfinishedOps :: [OperationPlan] -> [Operation]
-getUnfinishedOps = map snd . filter ((/= DONE) . fst)
+-- | Get all operations whose MigrateAction matches the given predicate.
+getOpsWith :: (MigrateAction -> Bool) -> [OperationPlan] -> [Operation]
+getOpsWith f = map snd . filter (f . fst)
 
 -- | Get the migrate plan for the given migration.
 getMigratePlan :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m MigratePlan
@@ -109,11 +91,10 @@ getMigratePlan backend migration = do
   doneOps <- map unSingle <$> rawSql "SELECT opId FROM persistent_migration" []
   let opPlans = map (\op -> if opId op `elem` doneOps then (DONE, op) else (RUN, op)) migration
 
-  return $ finalizeMigratePlan
+  return
     MigratePlan
       { original = migration
       , plan = opPlans
-      , todo = getUnfinishedOps opPlans
       }
   where
     migrationSchema = CreateTable
@@ -127,17 +108,13 @@ getMigratePlan backend migration = do
           [ PrimaryKey ["id"]
           ]
       }
-    finalizeMigratePlan migratePlan =
-      case todo migratePlan of
-        [] -> migratePlan
-        (op:todo') -> finalizeMigratePlan $ modifyMigration' op migratePlan{todo = todo'}
 
 -- | Run the given migration. After successful completion, saves the migration to the database.
 runMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m ()
 runMigration backend migration = do
   migratePlan <- getMigratePlan backend migration
   getMigration' backend migration migratePlan >>= rawExecute'
-  forM_ (getUnfinishedOps $ plan migratePlan) $ \Operation{..} ->
+  forM_ (getOpsWith (/= DONE) $ plan migratePlan) $ \Operation{..} ->
     rawExecute "INSERT INTO persistent_migration(opId, operation) VALUES (?, ?)"
       [ PersistInt64 $ fromIntegral opId
       , PersistText $ Text.pack $ show opOp
@@ -159,7 +136,7 @@ getMigration' backend migration migratePlan = do
     hasDuplicates l = length (nub l) /= length l
     concatMapM f = fmap concat . mapM f
     -- MigratePlan helpers
-    fromMigratePlan = map snd . filter ((== RUN) . fst) . plan
+    fromMigratePlan = getOpsWith (== RUN) . plan
     -- Operation helpers
     getMigrationText' Operation{opOp} = mapReaderT liftIO $ getMigrationText backend opOp
 
@@ -238,84 +215,6 @@ data NoOp = NoOp
 
 instance Migrateable NoOp where
   getMigrationText _ _ = return []
-
-{- Nested operations -}
-
--- | Check if the given operation is not DONE and the id matches the given id.
-isPlannedOp :: OperationId -> (MigrateAction, Operation) -> Bool
-isPlannedOp opId' (action, Operation{opId}) = action /= DONE && opId == opId'
-
--- | Set all operations with the given ID to the given MigrateAction.
-setAction :: MigrateAction -> [OperationId] -> [OperationPlan] -> [OperationPlan]
-setAction action opIds = map setAction'
-  where
-    setAction' opPlan@(_, op@Operation{opId}) = if opId `elem` opIds then (action, op) else opPlan
-
--- | Insert the given suboperations into the plan and todo list for the given operation ID.
-insertOperations :: OperationId -> [SubOperation] -> MigratePlan -> MigratePlan
-insertOperations opId' subOps mp = mp
-  { plan = concatMap expandOp (plan mp)
-  , todo = newOps ++ todo mp
-  }
-  where
-    newOps = map (\(SubOperation op) -> Operation opId' op) subOps
-    expandOp item@(_, Operation{opId}) = item : if opId == opId' then map (RUN,) newOps else []
-
--- | If the given OperationId has not been run, don't run it. Otherwise, run the given operations.
---
--- e.g. given:
--- @
--- migrations =
---   [ Operation 0 $ CreateTable "person" ...
---   , Operation 1 $ DropColumn "person" "name"
---   , Operation 2 $ Revert 1
---       [ SubOperation $ AddColumn "person" (Column "name" ...) ...
---       ]
---   ]
--- @
---
--- * Someone migrating an empty database will only run operation 0
--- * Someone who only ran 0 will not run anything
--- * Someone who ran 0 and 1 will run the AddColumn operation in 2
-data Revert = Revert OperationId [SubOperation]
-  deriving (Show)
-
-instance Migrateable Revert where
-  getMigrationText _ _ = return []
-
-  modifyMigration (Revert oldId ops) Operation{opId} mp@MigratePlan{plan} =
-    if any (isPlannedOp oldId) plan
-      then mp{plan = setAction REVERTED [oldId] plan}
-      else insertOperations opId ops mp
-
--- | If none of the given OperationIds have been run, run the given operations instead.
---
--- e.g. given:
--- @
--- migrations =
---   [ Operation 0 $ CreateTable "person" ...
---   , Operation 1 $ AddColumn "person" (Column "height" ...) ...
---   , Operation 2 $ DropColumn "person" "height"
---   , Operation 3 $ Squash [1,2] []
---   ]
--- @
---
--- * Someone migrating an empty database will run operations 0 and 3
--- * Someone who only ran 0 will only run 3
--- * Someone who ran up to 1 will run 2, but not 3
--- * Someone who ran up to 2 will not run anything
-data Squash = Squash [OperationId] [SubOperation]
-  deriving (Show)
-
-instance Migrateable Squash where
-  getMigrationText _ _ = return []
-
-  modifyMigration (Squash oldIds ops) Operation{opId} mp@MigratePlan{plan} =
-    if all isPlanned oldIds
-      then insertOperations opId ops mp{plan = setAction SQUASHED oldIds plan}
-      else mp
-    where
-      isPlanned oldId = any (isPlannedOp oldId) plan
 
 {- Auxiliary types -}
 

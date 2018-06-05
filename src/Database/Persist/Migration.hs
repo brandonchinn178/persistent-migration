@@ -11,7 +11,6 @@ module Database.Persist.Migration
   -- * Operation types
   ( OperationId
   , Operation(..)
-  , SubOperation(..)
   -- * Migration types
   , Migration
   , MigrateBackend(..)
@@ -28,8 +27,6 @@ module Database.Persist.Migration
   , AddColumn(..)
   , DropColumn(..)
   , RawOperation(..)
-  , Revert(..)
-  , Squash(..)
   , NoOp(..)
   -- * Auxiliary types
   , ColumnIdentifier
