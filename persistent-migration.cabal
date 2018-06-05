@@ -19,6 +19,7 @@ library
   hs-source-dirs:     src
   default-language:   Haskell2010
   exposed-modules:    Database.Persist.Migration
+                      Database.Persist.Migration.Postgres
   other-modules:      Database.Persist.Migration.Internal
                       Database.Persist.Migration.Plan
                       Database.Persist.Migration.Sql
