@@ -29,10 +29,10 @@ createPerson = CreateTable
   { ctName = "person"
   , ctSchema =
       [ Column "id" SqlInt32 []
-      , Column "name" SqlString []
-      , Column "age" SqlInt32 []
-      , Column "alive" SqlBool [Defaults "TRUE"]
-      , Column "hometown" SqlInt64 [Nullable, ForeignKey ("cities", "id")]
+      , Column "name" SqlString [NotNull]
+      , Column "age" SqlInt32 [NotNull]
+      , Column "alive" SqlBool [NotNull, Defaults "TRUE"]
+      , Column "hometown" SqlInt64 [ForeignKey ("cities", "id")]
       ]
   , ctConstraints =
       [ PrimaryKey ["id"]
@@ -58,9 +58,9 @@ migration =
   [ Operation 0 $ createPerson
 
   -- version 2
-  , Operation 1 $ AddColumn "person" (Column "gender" SqlString [Nullable]) Nothing
+  , Operation 1 $ AddColumn "person" (Column "gender" SqlString []) Nothing
   -- Non-null column without default for inserted rows needs a default for existing rows.
-  , Operation 2 $ AddColumn "person" (Column "height" SqlInt32 []) (Just "0")
+  , Operation 2 $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just "0")
 
   -- version 3
   , Operation 3 $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0")

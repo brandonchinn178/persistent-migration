@@ -8,9 +8,9 @@ Defines a migration framework for the persistent library.
 -}
 
 module Database.Persist.Migration
-  (
   -- * Operation types
-    Operation(..)
+  ( OperationId
+  , Operation(..)
   , SubOperation(..)
   -- * Migration types
   , Migration
@@ -32,6 +32,8 @@ module Database.Persist.Migration
   , Squash(..)
   , NoOp(..)
   -- * Auxiliary types
+  , ColumnIdentifier
+  , dotted
   , Column(..)
   , ColumnProp(..)
   , TableConstraint(..)

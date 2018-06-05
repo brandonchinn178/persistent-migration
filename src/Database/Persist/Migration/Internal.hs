@@ -9,18 +9,25 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Internal where
 
-import Control.Monad (when)
+import Control.Monad (forM_, when)
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader (mapReaderT)
 import Data.List (nub)
+import Data.Maybe (isNothing)
+import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Database.Persist.Sql (SqlPersistT, rawExecute)
+import Database.Persist.Sql
+    (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
 
 {- Operation types -}
@@ -30,16 +37,16 @@ type OperationId = Int
 
 -- | An operation that can be migrated.
 data Operation =
-  forall m. Migrateable m =>
+  forall op. Migrateable op =>
   Operation
     { opId :: OperationId
-    , opOp :: m
+    , opOp :: op
     }
 
 deriving instance Show Operation
 
 -- | An operation nested within another operation.
-data SubOperation = forall m. Migrateable m => SubOperation m
+data SubOperation = forall op. Migrateable op => SubOperation op
 
 deriving instance Show SubOperation
 
@@ -50,16 +57,11 @@ type Migration = [Operation]
 
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
-  { setupMigrations :: SqlPersistT IO ()
-      -- ^ set up the migration table if it hasn't been already
-  , getCompletedOps :: SqlPersistT IO [OperationId]
-      -- ^ get a list of operation IDs that have already been completed
-  , saveMigration   :: Migration -> SqlPersistT IO ()
-      -- ^ save the operations in the given migration to the database as completed
-  , createTable     :: CreateTable -> SqlPersistT IO [Text]
-  , dropTable       :: DropTable -> SqlPersistT IO [Text]
-  , addColumn       :: AddColumn -> SqlPersistT IO [Text]
-  , dropColumn      :: DropColumn -> SqlPersistT IO [Text]
+  { createTable :: Bool -> CreateTable -> SqlPersistT IO [Text]
+      -- ^ create a table (True = IF NOT EXISTS)
+  , dropTable   :: DropTable -> SqlPersistT IO [Text]
+  , addColumn   :: AddColumn -> SqlPersistT IO [Text]
+  , dropColumn  :: DropColumn -> SqlPersistT IO [Text]
   }
 
 -- | An action for an operation in a MigratePlan.
@@ -80,51 +82,90 @@ data MigratePlan = MigratePlan
   }
 
 -- | The type class for data types that can be migrated.
-class Show m => Migrateable m where
+class Show op => Migrateable op where
   -- | Get the SQL queries to run the migration.
-  getMigrationText :: MigrateBackend -> m -> SqlPersistT IO [Text]
+  getMigrationText :: MigrateBackend -> op -> SqlPersistT IO [Text]
 
   -- | Given the tentative migration and the operations left to process, return the updated
   -- tentative migration and the possibly modified todo list.
-  modifyMigration :: m -> Operation -> MigratePlan -> MigratePlan
+  modifyMigration :: op -> Operation -> MigratePlan -> MigratePlan
   modifyMigration _ _ = id
 
 -- | Modify the migration according to the given operation.
 modifyMigration' :: Operation -> MigratePlan -> MigratePlan
 modifyMigration' op@Operation{opOp} = modifyMigration opOp op
 
+-- | Get all operations that are not DONE from the given operation plans.
+getUnfinishedOps :: [OperationPlan] -> [Operation]
+getUnfinishedOps = map snd . filter ((/= DONE) . fst)
+
+-- | Get the migrate plan for the given migration.
+getMigratePlan :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m MigratePlan
+getMigratePlan backend migration = do
+  -- create the persistent_migration table if it doesn't already exist
+  rawExecute' =<< mapReaderT liftIO (createTable backend True migrationSchema)
+
+  -- get all of the operation IDs in the database
+  doneOps <- map unSingle <$> rawSql "SELECT opId FROM persistent_migration" []
+  let opPlans = map (\op -> if opId op `elem` doneOps then (DONE, op) else (RUN, op)) migration
+
+  return $ finalizeMigratePlan
+    MigratePlan
+      { original = migration
+      , plan = opPlans
+      , todo = getUnfinishedOps opPlans
+      }
+  where
+    migrationSchema = CreateTable
+      { ctName = "persistent_migration"
+      , ctSchema =
+          [ Column "id" SqlInt32 []
+          , Column "opId" SqlInt32 []
+          , Column "operation" SqlString []
+          ]
+      , ctConstraints =
+          [ PrimaryKey ["id"]
+          ]
+      }
+    finalizeMigratePlan migratePlan =
+      case todo migratePlan of
+        [] -> migratePlan
+        (op:todo') -> finalizeMigratePlan $ modifyMigration' op migratePlan{todo = todo'}
+
 -- | Run the given migration. After successful completion, saves the migration to the database.
-runMigration :: MigrateBackend -> Migration -> SqlPersistT IO ()
+runMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m ()
 runMigration backend migration = do
-  migrateQueries <- getMigration backend migration
-  mapM_ (\s -> rawExecute s []) migrateQueries
-  saveMigration backend migration
+  migratePlan <- getMigratePlan backend migration
+  getMigration' backend migration migratePlan >>= rawExecute'
+  forM_ (getUnfinishedOps $ plan migratePlan) $ \Operation{..} ->
+    rawExecute "INSERT INTO persistent_migration(opId, operation) VALUES (?, ?)"
+      [ PersistInt64 $ fromIntegral opId
+      , PersistText $ Text.pack $ show opOp
+      ]
 
 -- | Get the SQL queries for the given migration.
-getMigration :: MigrateBackend -> Migration -> SqlPersistT IO [Text]
-getMigration backend migration = do
+getMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m [Text]
+getMigration backend migration =
+  getMigratePlan backend migration >>= getMigration' backend migration
+
+-- | Get the migration for the given MigrateBackend.
+getMigration' :: MonadIO m => MigrateBackend -> Migration -> MigratePlan -> SqlPersistT m [Text]
+getMigration' backend migration migratePlan = do
   when (hasDuplicates $ map opId migration) $
     fail "Migration has multiple operations with the same ID"
-  setupMigrations backend
-  doneOps <- getCompletedOps backend
-  let migratePlan = MigratePlan
-        { original = migration
-        , plan = map (\op -> if opId op `elem` doneOps then (DONE, op) else (RUN, op)) migration
-        , todo = migration
-        }
-  concatMapM getMigrationText' . fromMigratePlan . finalizeMigratePlan $ migratePlan
+  concatMapM getMigrationText' . fromMigratePlan $ migratePlan
   where
     -- Utilities
     hasDuplicates l = length (nub l) /= length l
     concatMapM f = fmap concat . mapM f
     -- MigratePlan helpers
-    finalizeMigratePlan migratePlan =
-      case todo migratePlan of
-        [] -> migratePlan
-        (op:todo') -> finalizeMigratePlan $ modifyMigration' op migratePlan{todo = todo'}
     fromMigratePlan = map snd . filter ((== RUN) . fst) . plan
     -- Operation helpers
-    getMigrationText' Operation{opOp} = getMigrationText backend opOp
+    getMigrationText' Operation{opOp} = mapReaderT liftIO $ getMigrationText backend opOp
+
+-- | Execute the given SQL strings.
+rawExecute' :: MonadIO m => [Text] -> SqlPersistT m ()
+rawExecute' = mapM_ $ \s -> rawExecute s []
 
 {- Core Operations -}
 
@@ -136,7 +177,7 @@ data CreateTable = CreateTable
   } deriving (Show)
 
 instance Migrateable CreateTable where
-  getMigrationText = createTable
+  getMigrationText backend = createTable backend False
 
 -- | An operation to drop the given table.
 newtype DropTable = DropTable
@@ -157,12 +198,14 @@ data AddColumn = AddColumn
   } deriving (Show)
 
 instance Migrateable AddColumn where
-  getMigrationText = addColumn
+  getMigrationText backend ac@AddColumn{..} = do
+    when (isNotNullAndNoDefault acColumn && isNothing acDefault) $
+      fail $ Text.unpack $ "A non-nullable column requires a default: " <> colName acColumn
+    addColumn backend ac
 
 -- | An operation to drop the given column to an existing table.
-data DropColumn = DropColumn
-  { dcTable  :: Text
-  , dcColumn :: Text
+newtype DropColumn = DropColumn
+  { dcColumn :: ColumnIdentifier
   } deriving (Show)
 
 instance Migrateable DropColumn where
@@ -276,6 +319,13 @@ instance Migrateable Squash where
 
 {- Auxiliary types -}
 
+-- | A column identifier, table.column
+type ColumnIdentifier = (Text, Text)
+
+-- | Make a ColumnIdentifier displayable.
+dotted :: ColumnIdentifier -> Text
+dotted (tab, col) = tab <> "." <> col
+
 -- | The definition for a Column in a SQL database.
 data Column = Column
   { colName  :: Text
@@ -283,12 +333,19 @@ data Column = Column
   , colProps :: [ColumnProp]
   } deriving (Show)
 
+-- | Return whether the given column is NOT NULL and doesn't have a default specified.
+isNotNullAndNoDefault :: Column -> Bool
+isNotNullAndNoDefault Column{..} = NotNull `elem` colProps && any isDefault colProps
+  where
+    isDefault (Defaults _) = True
+    isDefault _ = False
+
 -- | A property for a 'Column'.
 data ColumnProp
-  = Nullable -- ^ Makes a 'Column' nullable (defaults to non-nullable)
+  = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
   | Defaults Text -- ^ Set the default for inserted rows without a value specified for the column
-  | ForeignKey (Text, Text) -- ^ Mark this column as a foreign key to the given table.column
-  deriving (Show)
+  | ForeignKey ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
+  deriving (Show,Eq)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint
