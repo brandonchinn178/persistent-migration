@@ -21,7 +21,7 @@ module Database.Persist.Migration.Internal where
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
-import Data.Maybe (isNothing)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -104,10 +104,12 @@ getMigratePlan :: Migration -> Maybe Version -> Migration
 getMigratePlan migration mVersion = getPath edges start end
   where
     edges = map (\op@Operation{opPath} -> (opPath, op)) migration
-    start = case mVersion of
-      Nothing -> minimum . map (fst . opPath) $ migration
-      Just v -> v
+    start = fromMaybe (getFirstVersion migration) mVersion
     end = getLatestVersion migration
+
+-- | Get the first version in the given migration.
+getFirstVersion :: Migration -> Version
+getFirstVersion = minimum . map (fst . opPath)
 
 -- | Get the most up-to-date version in the given migration.
 getLatestVersion :: Migration -> Version
