@@ -4,9 +4,10 @@
 
 module Database.Persist.TestUtils where
 
-import Data.Conduit (yield)
+import Data.Conduit.List (sourceList)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
+import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
 import Database.Persist.Migration
 import Database.Persist.Sql (PersistValue(..), SqlBackend(..), Statement(..))
@@ -17,17 +18,17 @@ import Test.Hspec.Expectations (Expectation)
 
 -- | The mock database backend for testing.
 newtype TestBackend = TestBackend
-  { doneOps :: [OperationId] -- ^ Operation IDs that have already been run
+  { version :: Maybe Version
   }
 
 -- | The global test backend.
 testBackend :: IORef TestBackend
-testBackend = unsafePerformIO $ newIORef (TestBackend [])
+testBackend = unsafePerformIO $ newIORef (TestBackend Nothing)
 {-# NOINLINE testBackend #-}
 
 -- | Run the given test with an initialized backend.
 withTestBackend :: Expectation -> Expectation
-withTestBackend test = writeIORef testBackend (TestBackend []) >> test
+withTestBackend test = writeIORef testBackend (TestBackend Nothing) >> test
 
 -- | Modify the mock database.
 modifyTestBackend :: (TestBackend -> TestBackend) -> IO ()
@@ -55,11 +56,12 @@ initSqlBackend = do
   return SqlBackend
     { connPrepare = \case
         "CREATE TABLE IF NOT EXISTS persistent_migration" -> return stmt
-        "SELECT opId FROM persistent_migration" -> do
-          TestBackend{doneOps} <- readIORef testBackend
-          let result = map (pure . PersistInt64 . fromIntegral) doneOps
+        "SELECT version FROM persistent_migration ORDER BY timestamp DESC LIMIT 1" -> do
+          TestBackend{version} <- readIORef testBackend
+          let result = pure . PersistInt64 . fromIntegral <$> maybeToList version
+
           return stmt
-            { stmtQuery = const $ return $ mapM_ yield result
+            { stmtQuery = const $ return $ sourceList result
             }
         _ -> error "connPrepare"
     , connStmtMap = smap
