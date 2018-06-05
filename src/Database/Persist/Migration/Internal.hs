@@ -31,15 +31,25 @@ import Database.Persist.Types (SqlType(..))
 
 {- Operation types -}
 
--- | The ID of an operation. Should be unique and not change, ever.
-type OperationId = Int
+-- | The version of a database. An operation migrates from the given version to another version.
+--
+-- The version must be increasing, such that the lowest version is the first version and the highest
+-- version is the most up-to-date version.
+type Version = Int
+
+-- | The path that an operation takes.
+type OperationPath = (Version, Version)
+
+-- | An infix constructor for 'OperationPath'.
+(~>) :: Int -> Int -> OperationPath
+(~>) = (,)
 
 -- | An operation that can be migrated.
 data Operation =
   forall op. Migrateable op =>
   Operation
-    { opId :: OperationId
-    , opOp :: op
+    { opPath :: OperationPath
+    , opOp   :: op
     }
 
 deriving instance Show Operation
