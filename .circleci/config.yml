@@ -11,9 +11,7 @@ aliases:
   - &install-deps
     run:
       name: Install system dependencies
-      command: |
-        yum update -y --exclude=filesystem
-        yum install -y zlib-devel
+      command: scripts/install-system-deps.sh
   - &install-stack
     run:
       name: Install stack
@@ -26,7 +24,7 @@ aliases:
       command: |
         FILES=(
           stack.yaml
-          scripts/setup.sh
+          scripts/install-stack-deps.sh
           persistent-migration.cabal
         )
         cat "${FILES[@]}" > cache-key.txt
@@ -35,7 +33,7 @@ aliases:
   - &build-deps
     run:
       name: Build external dependencies
-      command: scripts/setup.sh
+      command: scripts/install-stack-deps.sh
 
   # build steps
   - &run-build
