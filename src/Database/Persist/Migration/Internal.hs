@@ -8,6 +8,7 @@ Defines a migration framework for the persistent library.
 -}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -17,29 +18,40 @@ Defines a migration framework for the persistent library.
 
 module Database.Persist.Migration.Internal where
 
-import Control.Monad (forM_, when)
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
-import Data.List (nub)
-import Data.Maybe (isNothing)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Time.Clock (getCurrentTime)
+import Database.Persist.Migration.Plan (getPath)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
 
 {- Operation types -}
 
--- | The ID of an operation. Should be unique and not change, ever.
-type OperationId = Int
+-- | The version of a database. An operation migrates from the given version to another version.
+--
+-- The version must be increasing, such that the lowest version is the first version and the highest
+-- version is the most up-to-date version.
+type Version = Int
+
+-- | The path that an operation takes.
+type OperationPath = (Version, Version)
+
+-- | An infix constructor for 'OperationPath'.
+(~>) :: Int -> Int -> OperationPath
+(~>) = (,)
 
 -- | An operation that can be migrated.
 data Operation =
   forall op. Migrateable op =>
   Operation
-    { opId :: OperationId
-    , opOp :: op
+    { opPath :: OperationPath
+    , opOp   :: op
     }
 
 deriving instance Show Operation
@@ -58,85 +70,70 @@ data MigrateBackend = MigrateBackend
   , dropColumn  :: DropColumn -> SqlPersistT IO [Text]
   }
 
--- | An action for an operation in a MigratePlan.
-data MigrateAction
-  = DONE -- ^ The operation was already done in a previous migration
-  | RUN  -- ^ The operation should be run in this migration
-  deriving (Eq,Show)
-
-type OperationPlan = (MigrateAction, Operation)
-
--- | The tentative plan for migration.
-data MigratePlan = MigratePlan
-  { original :: Migration -- ^ The original, full migration defined by the user
-  , plan     :: [OperationPlan] -- ^ The tentative list of operations
-  }
-
 -- | The type class for data types that can be migrated.
 class Show op => Migrateable op where
   -- | Get the SQL queries to run the migration.
   getMigrationText :: MigrateBackend -> op -> SqlPersistT IO [Text]
 
--- | Get all operations whose MigrateAction matches the given predicate.
-getOpsWith :: (MigrateAction -> Bool) -> [OperationPlan] -> [Operation]
-getOpsWith f = map snd . filter (f . fst)
-
--- | Get the migrate plan for the given migration.
-getMigratePlan :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m MigratePlan
-getMigratePlan backend migration = do
+-- | Get the current version of the database, or Nothing if none exists.
+getCurrVersion :: MonadIO m => MigrateBackend -> SqlPersistT m (Maybe Version)
+getCurrVersion backend = do
   -- create the persistent_migration table if it doesn't already exist
-  rawExecute' =<< mapReaderT liftIO (createTable backend True migrationSchema)
-
-  -- get all of the operation IDs in the database
-  doneOps <- map unSingle <$> rawSql "SELECT opId FROM persistent_migration" []
-  let opPlans = map (\op -> if opId op `elem` doneOps then (DONE, op) else (RUN, op)) migration
-
-  return
-    MigratePlan
-      { original = migration
-      , plan = opPlans
-      }
+  mapReaderT liftIO (createTable backend True migrationSchema) >>= rawExecute'
+  extractVersion <$> rawSql queryVersion []
   where
     migrationSchema = CreateTable
       { ctName = "persistent_migration"
       , ctSchema =
           [ Column "id" SqlInt32 []
-          , Column "opId" SqlInt32 []
-          , Column "operation" SqlString []
+          , Column "version" SqlInt32 []
+          , Column "timestamp" SqlDayTime []
           ]
       , ctConstraints =
           [ PrimaryKey ["id"]
           ]
       }
+    queryVersion = "SELECT version FROM persistent_migration ORDER BY timestamp DESC LIMIT 1"
+    extractVersion = \case
+      [] -> Nothing
+      [Single v] -> Just v
+      _ -> error "Invalid response from the database."
+
+-- | Get the migration plan given the current state of the database.
+getMigratePlan :: Migration -> Maybe Version -> Migration
+getMigratePlan migration mVersion = getPath edges start end
+  where
+    edges = map (\op@Operation{opPath} -> (opPath, op)) migration
+    start = fromMaybe (getFirstVersion migration) mVersion
+    end = getLatestVersion migration
+
+-- | Get the first version in the given migration.
+getFirstVersion :: Migration -> Version
+getFirstVersion = minimum . map (fst . opPath)
+
+-- | Get the most up-to-date version in the given migration.
+getLatestVersion :: Migration -> Version
+getLatestVersion = maximum . map (snd . opPath)
 
 -- | Run the given migration. After successful completion, saves the migration to the database.
 runMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m ()
 runMigration backend migration = do
-  migratePlan <- getMigratePlan backend migration
-  getMigration' backend migration migratePlan >>= rawExecute'
-  forM_ (getOpsWith (/= DONE) $ plan migratePlan) $ \Operation{..} ->
-    rawExecute "INSERT INTO persistent_migration(opId, operation) VALUES (?, ?)"
-      [ PersistInt64 $ fromIntegral opId
-      , PersistText $ Text.pack $ show opOp
-      ]
+  getMigration backend migration >>= rawExecute'
+  now <- liftIO getCurrentTime
+  rawExecute "INSERT INTO persistent_migration(version, timestamp) VALUES (?, ?)"
+    [ PersistInt64 $ fromIntegral $ getLatestVersion migration
+    , PersistUTCTime now
+    ]
 
 -- | Get the SQL queries for the given migration.
 getMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m [Text]
-getMigration backend migration =
-  getMigratePlan backend migration >>= getMigration' backend migration
-
--- | Get the migration for the given MigrateBackend.
-getMigration' :: MonadIO m => MigrateBackend -> Migration -> MigratePlan -> SqlPersistT m [Text]
-getMigration' backend migration migratePlan = do
-  when (hasDuplicates $ map opId migration) $
-    fail "Migration has multiple operations with the same ID"
-  concatMapM getMigrationText' . fromMigratePlan $ migratePlan
+getMigration backend migration = do
+  currVersion <- getCurrVersion backend
+  let migratePlan = getMigratePlan migration currVersion
+  concatMapM getMigrationText' migratePlan
   where
     -- Utilities
-    hasDuplicates l = length (nub l) /= length l
     concatMapM f = fmap concat . mapM f
-    -- MigratePlan helpers
-    fromMigratePlan = getOpsWith (== RUN) . plan
     -- Operation helpers
     getMigrationText' Operation{opOp} = mapReaderT liftIO $ getMigrationText backend opOp
 

@@ -16,9 +16,11 @@ might want explicit/manual migrations for other reasons.
 
 This package exposes an `Operation` data type that will be converted into SQL
 by a persistent backend. To define a series of migrations, write a list of
-these `Operations` and call `runMigration` from the appropriate persistent
-backend library. `runMigration` will run all of the `Operations` that have not
-been run yet.
+these `Operations` and call `runMigration` from the appropriate backend module.
+Each `Operation` represents a movement from one version of the schema to
+another. `runMigration` will check to see the current version of the schema and
+run the `Operations` necessary to get from the current version to the latest
+version.
 
 ```
 import Database.Persist.Migration
@@ -54,19 +56,24 @@ migrateHeight = RawOperation "Separate height into height_feet, height_inches" $
 
 migration :: Migration
 migration =
-  -- version 1
-  [ Operation 0 $ createPerson
+  -- first commit
+  [ Operation (0 ~> 1) $ createPerson
 
-  -- version 2
-  , Operation 1 $ AddColumn "person" (Column "gender" SqlString []) Nothing
-  -- Non-null column without default for inserted rows needs a default for existing rows.
-  , Operation 2 $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just "0")
+  -- second commit
+  , Operation (1 ~> 2) $ DropColumn ("person", "alive")
+  , Operation (0 ~> 2) $ DropColumn ("person", "alive")
+    -- A contrived example of defining shorter paths for equivalent operations
 
-  -- version 3
-  , Operation 3 $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0")
-  , Operation 4 $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0")
-  , Operation 5 $ migrateHeight
-  , Operation 6 $ DropColumn "person" "height"
+  -- second commit
+  , Operation (2 ~> 3) $ AddColumn "person" (Column "gender" SqlString []) Nothing
+  , Operation (3 ~> 4) $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just "0")
+    -- Non-null column without default for inserted rows needs a default for existing rows.
+
+  -- third commit
+  , Operation (5 ~> 6) $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0")
+  , Operation (6 ~> 7) $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0")
+  , Operation (7 ~> 8) $ migrateHeight
+  , Operation (8 ~> 9) $ DropColumn ("person", "height")
   ]
 ```
 

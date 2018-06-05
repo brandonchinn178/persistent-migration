@@ -18,7 +18,7 @@ unit_basic_migration :: Expectation
 unit_basic_migration = getTestMigration migration `shouldReturn` migrationText
   where
     migration =
-      [ Operation 0 $
+      [ Operation (0 ~> 1) $
           CreateTable
             { ctName = "person"
             , ctSchema =
@@ -33,9 +33,9 @@ unit_basic_migration = getTestMigration migration `shouldReturn` migrationText
                 , Unique ["name"]
                 ]
             }
-      , Operation 1 $ AddColumn "person" (Column "gender" SqlString []) Nothing
-      , Operation 2 $ DropColumn ("person", "alive")
-      , Operation 3 $ DropTable "person"
+      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
+      , Operation (2 ~> 3) $ DropColumn ("person", "alive")
+      , Operation (3 ~> 4) $ DropTable "person"
       ]
     migrationText =
       [ "CREATE TABLE person"
@@ -44,31 +44,23 @@ unit_basic_migration = getTestMigration migration `shouldReturn` migrationText
       , "DROP TABLE person"
       ]
 
-unit_duplicate_operation_ids :: Expectation
-unit_duplicate_operation_ids = getTestMigration migration `shouldThrow` anyException
-  where
-    migration =
-      [ Operation 0 $ CreateTable "person" [] []
-      , Operation 0 $ DropTable "person"
-      ]
-
 unit_some_done :: Expectation
 unit_some_done = withTestBackend $ do
-  modifyTestBackend $ \backend -> backend{doneOps = [0]}
+  modifyTestBackend $ \backend -> backend{version = Just 1}
   getTestMigration migration `shouldReturn` migrationText
   where
     migration =
-      [ Operation 0 $ CreateTable "person" [] []
-      , Operation 1 $ DropTable "person"
+      [ Operation (0 ~> 1) $ CreateTable "person" [] []
+      , Operation (1 ~> 2) $ DropTable "person"
       ]
     migrationText = ["DROP TABLE person"]
 
 unit_all_done :: Expectation
 unit_all_done = withTestBackend $ do
-  modifyTestBackend $ \backend -> backend{doneOps = [0, 1]}
+  modifyTestBackend $ \backend -> backend{version = Just 2}
   getTestMigration migration `shouldReturn` []
   where
     migration =
-      [ Operation 0 $ CreateTable "person" [] []
-      , Operation 1 $ DropTable "person"
+      [ Operation (0 ~> 1) $ CreateTable "person" [] []
+      , Operation (1 ~> 2) $ DropTable "person"
       ]

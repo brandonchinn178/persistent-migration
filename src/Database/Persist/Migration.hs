@@ -9,14 +9,14 @@ Defines a migration framework for the persistent library.
 
 module Database.Persist.Migration
   -- * Operation types
-  ( OperationId
+  ( Version
+  , OperationPath
+  , (~>)
   , Operation(..)
   -- * Migration types
   , Migration
   , MigrateBackend(..)
   , Migrateable(..)
-  , MigrateAction(..)
-  , MigratePlan(..)
   -- * Migration functions
   , runMigration
   , getMigration
