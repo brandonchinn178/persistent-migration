@@ -25,6 +25,7 @@ import Data.Maybe (isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Database.Persist.Migration.Plan (getPath)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
