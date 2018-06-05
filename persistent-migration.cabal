@@ -28,6 +28,7 @@ library
                     , persistent
                     , mtl
                     , text
+                    , time
                     , unordered-containers
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat

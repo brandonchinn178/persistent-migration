@@ -17,8 +17,6 @@ module Database.Persist.Migration
   , Migration
   , MigrateBackend(..)
   , Migrateable(..)
-  , MigrateAction(..)
-  , MigratePlan(..)
   -- * Migration functions
   , runMigration
   , getMigration
