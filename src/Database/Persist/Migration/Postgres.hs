@@ -60,7 +60,7 @@ createTable' ifNotExists CreateTable{..} = return
     tableDefs = map showColumn ctSchema ++ map showTableConstraint ctConstraints
 
 dropTable' :: DropTable -> SqlPersistT IO [Text]
-dropTable' = undefined
+dropTable' DropTable{..} = return ["DROP TABLE " <> dtName]
 
 addColumn' :: AddColumn -> SqlPersistT IO [Text]
 addColumn' = undefined
