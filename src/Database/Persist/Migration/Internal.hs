@@ -13,7 +13,6 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Internal where
