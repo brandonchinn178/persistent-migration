@@ -17,6 +17,8 @@ module Database.Persist.Migration.Postgres
   , runMigration
   ) where
 
+import Data.List (find)
+import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -30,6 +32,8 @@ import Database.Persist.Migration
     , MigrateBackend(..)
     , Migration
     , TableConstraint(..)
+    , excludeColumnProp
+    , matchesColumnProp
     )
 import qualified Database.Persist.Migration as Migration
 import Database.Persist.Migration.Sql (quote, uncommas)
@@ -63,7 +67,22 @@ dropTable' :: DropTable -> SqlPersistT IO [Text]
 dropTable' DropTable{..} = return ["DROP TABLE " <> dtName]
 
 addColumn' :: AddColumn -> SqlPersistT IO [Text]
-addColumn' = undefined
+addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
+  where
+    Column{..} = acColumn
+    alterTable = "ALTER TABLE " <> quote acTable <> " "
+    -- The CREATE query with the default specified by AddColumn{acDefault}
+    createQuery = alterTable <> "ADD COLUMN " <> showColumn acColumn{colProps = createProps}
+    createProps = case acDefault of
+      Nothing -> colProps
+      Just existDef -> Defaults existDef : excludeColumnProp "Defaults" colProps
+    -- The ALTER query to set/drop the default (if necessary)
+    alterColumn = alterTable <> "ALTER COLUMN " <> quote colName <> " "
+    alterQuery = (<$> acDefault) . const . (alterColumn <>) $
+      case find (matchesColumnProp "Defaults") colProps of
+        Just (Defaults newDef) -> "SET DEFAULT " <> newDef
+        Just _ -> error "matchesColumnProp returned an invalid constructor"
+        Nothing -> "DROP DEFAULT"
 
 dropColumn' :: DropColumn -> SqlPersistT IO [Text]
 dropColumn' = undefined

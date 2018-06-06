@@ -33,6 +33,9 @@ module Database.Persist.Migration
   , dotted
   , Column(..)
   , ColumnProp(..)
+  , matchesColumnProp
+  , hasColumnProp
+  , excludeColumnProp
   , TableConstraint(..)
   ) where
 
