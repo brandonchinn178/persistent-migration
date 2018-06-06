@@ -79,7 +79,7 @@ migration =
 ```
 
 ```
-import Database.Persist.Migration (checkMigration)
+import Database.Persist.Migration (checkMigration, defaultSettings)
 import Database.Persist.Migration.Postgres (runMigration)
 
 -- the migration defined above
@@ -90,7 +90,7 @@ import MyMigration.Migrate (migrationDef)
 
 main = do
   -- run the usual migration
-  runMigration migration
+  runMigration defaultSettings migration
 
   -- fails if persistent detects more migrations not accounted for
   checkMigration migrationDef

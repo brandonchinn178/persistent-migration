@@ -93,9 +93,10 @@ getCurrVersion backend = do
     migrationSchema = CreateTable
       { ctName = "persistent_migration"
       , ctSchema =
-          [ Column "id" SqlInt32 []
-          , Column "version" SqlInt32 []
-          , Column "timestamp" SqlDayTime []
+          [ Column "id" SqlInt32 [NotNull]
+          , Column "version" SqlInt32 [NotNull]
+          , Column "label" SqlString []
+          , Column "timestamp" SqlDayTime [NotNull]
           ]
       , ctConstraints =
           [ PrimaryKey ["id"]
@@ -123,19 +124,33 @@ getFirstVersion = minimum . map (fst . opPath)
 getLatestVersion :: Migration -> Version
 getLatestVersion = maximum . map (snd . opPath)
 
+{- Migration plan and execution -}
+
+newtype MigrateSettings = MigrateSettings
+  { versionToLabel :: Version -> Maybe String
+      -- ^ A function to optionally label certain versions
+  }
+
+defaultSettings :: MigrateSettings
+defaultSettings = MigrateSettings
+  { versionToLabel = const Nothing
+  }
+
 -- | Run the given migration. After successful completion, saves the migration to the database.
-runMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m ()
-runMigration backend migration = do
-  getMigration backend migration >>= rawExecute'
+runMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m ()
+runMigration backend settings@MigrateSettings{..} migration = do
+  getMigration backend settings migration >>= rawExecute'
   now <- liftIO getCurrentTime
-  rawExecute "INSERT INTO persistent_migration(version, timestamp) VALUES (?, ?)"
-    [ PersistInt64 $ fromIntegral $ getLatestVersion migration
+  let version = getLatestVersion migration
+  rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?)"
+    [ PersistInt64 $ fromIntegral version
+    , PersistText $ Text.pack $ fromMaybe (show version) $ versionToLabel version
     , PersistUTCTime now
     ]
 
 -- | Get the SQL queries for the given migration.
-getMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m [Text]
-getMigration backend migration = do
+getMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m [Text]
+getMigration backend _ migration = do
   either fail return $ mapM_ (\Operation{opOp} -> validateOperation opOp) migration
   currVersion <- getCurrVersion backend
   let migratePlan = getMigratePlan migration currVersion

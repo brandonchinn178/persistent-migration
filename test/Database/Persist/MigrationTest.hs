@@ -96,7 +96,7 @@ goldenMigration label backend name testBackend migration = goldenVsString' label
   setDatabase testBackend
   Text.unlines <$> getMigration' migration
   where
-    getMigration' = withTestBackend . runReaderT . getMigration backend
+    getMigration' = withTestBackend . runReaderT . getMigration backend defaultSettings
 
 -- | Set the version in the MockDatabase.
 withVersion :: Version -> MockDatabase
