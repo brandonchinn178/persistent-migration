@@ -43,7 +43,6 @@ test-suite persistent-migration-goldens
   other-modules:      Database.Persist.MigrationTest
                       Database.Persist.TestBackends
   build-depends: base
-               , bytestring
                , conduit
                , containers
                , mtl

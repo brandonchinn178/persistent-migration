@@ -4,7 +4,6 @@
 module Database.Persist.MigrationTest (testMigrations) where
 
 import Control.Monad.Reader (runReaderT)
-import Data.ByteString.Lazy (ByteString)
 import Data.Char (toLower)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -20,7 +19,7 @@ import Test.Tasty.Golden (goldenVsString)
 -- | Build a test suite for the given MigrateBackend.
 testMigrations :: String -> MigrateBackend -> TestTree
 testMigrations label backend = testGroup label
-  [ testGoldens' "Basic migration" defaultDatabase
+  [ goldenMigration' "Basic migration" defaultDatabase
       [ Operation (0 ~> 1) $
           CreateTable
             { ctName = "person"
@@ -40,46 +39,62 @@ testMigrations label backend = testGroup label
       , Operation (2 ~> 3) $ DropColumn ("person", "alive")
       , Operation (3 ~> 4) $ DropTable "person"
       ]
-  , testGoldens' "Partial migration" (withVersion 1)
+  , goldenMigration' "Partial migration" (withVersion 1)
       [ Operation (0 ~> 1) $ CreateTable "person" [] []
       , Operation (1 ~> 2) $ DropTable "person"
       ]
-  , testGoldens' "Complete migration" (withVersion 2)
+  , goldenMigration' "Complete migration" (withVersion 2)
       [ Operation (0 ~> 1) $ CreateTable "person" [] []
       , Operation (1 ~> 2) $ DropTable "person"
       ]
-  , testGoldens' "Migration with shorter path" defaultDatabase
+  , goldenMigration' "Migration with shorter path" defaultDatabase
       [ Operation (0 ~> 1) $ CreateTable "person" [] []
       , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
       , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
       ]
-  , testGoldens' "Partial migration avoids shorter path" (withVersion 1)
+  , goldenMigration' "Partial migration avoids shorter path" (withVersion 1)
       [ Operation (0 ~> 1) $ CreateTable "person" [] []
       , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
       , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
       ]
+  , goldenShow' "Duplicate ColumnProps in CreateTable" $ validateOperation $
+      CreateTable "person" [Column "age" SqlInt32 [NotNull, NotNull]] []
+  , goldenShow' "Duplicate Constraints in CreateTable" $ validateOperation $
+      CreateTable "person"
+        [Column "id1" SqlInt32 [], Column "id2" SqlInt32 []]
+        [PrimaryKey ["id1"], PrimaryKey ["id2"]]
+  , goldenShow' "Duplicate ColumnProps in AddColumn" $ validateOperation $
+      AddColumn "person" (Column "age" SqlInt32 [Default "0", Default "1"]) Nothing
+  , goldenShow' "Non-null AddColumn without default" $ validateOperation $
+      AddColumn "person" (Column "age" SqlInt32 [NotNull]) Nothing
   ]
   where
-    testGoldens' = testGoldens label backend
+    goldenMigration' = goldenMigration label backend
+    goldenShow' = goldenShow label
 
 {- Helpers -}
 
--- | Run a goldens test.
-testGoldens :: String -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
-testGoldens label backend name testBackend migration = goldenVsString name goldenFile $ do
-  setDatabase testBackend
-  textsToByteString <$> getMigration' migration
+-- | Run a goldens test where the goldens file is generated from the name.
+goldenVsString' :: String -> String -> IO Text -> TestTree
+goldenVsString' label name action = goldenVsString name goldenFile $ toByteString <$> action
   where
     goldenFile = "test/goldens/" ++ label ++ "/" ++ map slugify name ++ ".txt"
     slugify = \case
       ' ' -> '-'
       x -> toLower x
+    toByteString = Text.encodeUtf8 . fromStrict
 
-    getMigration' :: Migration -> IO [Text]
+-- | Run a goldens test for a pure Showable value.
+goldenShow :: Show a => String -> String -> a -> TestTree
+goldenShow label name = goldenVsString' label name . return . Text.pack . show
+
+-- | Run a goldens test for a migration.
+goldenMigration :: String -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
+goldenMigration label backend name testBackend migration = goldenVsString' label name $ do
+  setDatabase testBackend
+  Text.unlines <$> getMigration' migration
+  where
     getMigration' = withTestBackend . runReaderT . getMigration backend
-
-    textsToByteString :: [Text] -> ByteString
-    textsToByteString = Text.encodeUtf8 . fromStrict . Text.unlines
 
 -- | Set the version in the MockDatabase.
 withVersion :: Version -> MockDatabase

@@ -1,0 +1,1 @@
+Left "Duplicate table constraints detected: CreateTable {ctName = \"person\", ctSchema = [Column {colName = \"id1\", colType = SqlInt32, colProps = []},Column {colName = \"id2\", colType = SqlInt32, colProps = []}], ctConstraints = [PrimaryKey [\"id1\"],PrimaryKey [\"id2\"]]}"
