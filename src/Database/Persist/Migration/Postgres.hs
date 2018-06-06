@@ -30,6 +30,7 @@ import Database.Persist.Migration
     , DropColumn(..)
     , DropTable(..)
     , MigrateBackend(..)
+    , MigrateSettings
     , Migration
     , TableConstraint(..)
     , excludeColumnProp
@@ -40,11 +41,11 @@ import Database.Persist.Migration.Sql (quote, uncommas)
 import Database.Persist.Sql (SqlPersistT, SqlType(..))
 
 -- | Run a migration with the Postgres backend.
-runMigration :: Migration -> SqlPersistT IO ()
+runMigration :: MigrateSettings -> Migration -> SqlPersistT IO ()
 runMigration = Migration.runMigration backend
 
 -- | Get a migration with the Postgres backend.
-getMigration :: Migration -> SqlPersistT IO [Text]
+getMigration :: MigrateSettings -> Migration -> SqlPersistT IO [Text]
 getMigration = Migration.getMigration backend
 
 -- | The migration backend for Postgres.
