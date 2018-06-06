@@ -23,6 +23,8 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
 import Data.Data (Data, showConstr, toConstr)
+import Data.Function (on)
+import Data.List (nubBy)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
@@ -74,6 +76,10 @@ data MigrateBackend = MigrateBackend
 
 -- | The type class for data types that can be migrated.
 class Show op => Migrateable op where
+  -- | Validate any checks for the given operation.
+  validateOperation :: op -> Either String ()
+  validateOperation _ = Right ()
+
   -- | Get the SQL queries to run the migration.
   getMigrationText :: MigrateBackend -> op -> SqlPersistT IO [Text]
 
@@ -130,6 +136,7 @@ runMigration backend migration = do
 -- | Get the SQL queries for the given migration.
 getMigration :: MonadIO m => MigrateBackend -> Migration -> SqlPersistT m [Text]
 getMigration backend migration = do
+  either fail return $ mapM_ (\Operation{opOp} -> validateOperation opOp) migration
   currVersion <- getCurrVersion backend
   let migratePlan = getMigratePlan migration currVersion
   concatMapM getMigrationText' migratePlan
@@ -153,6 +160,16 @@ data CreateTable = CreateTable
   } deriving (Show)
 
 instance Migrateable CreateTable where
+  validateOperation ct@CreateTable{..} = do
+    mapM_ validateColumn ctSchema
+    when (hasDuplicateContrs ctConstraints) $
+      Left $ "Duplicate table constraints detected: " ++ show ct
+
+    let constraintCols = concatMap getConstraintColumns ctConstraints
+        schemaCols = map colName ctSchema
+    when (any (`notElem` schemaCols) constraintCols) $
+      Left $ "Table constraint references non-existent column: " ++ show ct
+
   getMigrationText backend = createTable backend False
 
 -- | An operation to drop the given table.
@@ -174,10 +191,12 @@ data AddColumn = AddColumn
   } deriving (Show)
 
 instance Migrateable AddColumn where
-  getMigrationText backend ac@AddColumn{..} = do
+  validateOperation ac@AddColumn{..} = do
+    validateColumn acColumn
     when (isNotNullAndNoDefault acColumn && isNothing acDefault) $
-      fail $ Text.unpack $ "A non-nullable column requires a default: " <> colName acColumn
-    addColumn backend ac
+      Left $ "Adding a non-nullable column requires a default: " ++ show ac
+
+  getMigrationText = addColumn
 
 -- | An operation to drop the given column to an existing table.
 newtype DropColumn = DropColumn
@@ -238,16 +257,21 @@ isNotNullAndNoDefault Column{..} = isNotNull && not hasDefault
     isNotNull = hasColumnProp "NotNull" colProps
     hasDefault = hasColumnProp "Default" colProps
 
+-- | Validate a Column.
+validateColumn :: Column -> Either String ()
+validateColumn col@Column{..} = when (hasDuplicateContrs colProps) $
+  Left $ "Duplicate column properties detected: " ++ show col
+
 -- | A property for a 'Column'.
 data ColumnProp
   = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
   | Default Text -- ^ Set the default for inserted rows without a value specified for the column
   | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
-  deriving (Show,Eq,Data)
+  deriving (Show,Data)
 
 -- | Return whether the given 'ColumnProp' matches the given name.
 matchesColumnProp :: String -> ColumnProp -> Bool
-matchesColumnProp name = (name ==) . showConstr . toConstr
+matchesColumnProp name = (name ==) . showData
 
 -- | Return whether the given 'ColumnProp' is in the list of 'ColumnProp's.
 hasColumnProp :: String -> [ColumnProp] -> Bool
@@ -261,4 +285,20 @@ excludeColumnProp name = filter (matchesColumnProp name)
 data TableConstraint
   = PrimaryKey [Text] -- ^ PRIMARY KEY (col1, col2, ...)
   | Unique [Text] -- ^ UNIQUE (col1, col2, ...)
-  deriving (Show)
+  deriving (Show,Data)
+
+-- | Get the columns defined in the given TableConstraint.
+getConstraintColumns :: TableConstraint -> [Text]
+getConstraintColumns = \case
+  PrimaryKey cols -> cols
+  Unique cols -> cols
+
+{- Helpers -}
+
+-- | Show the name of the constructor.
+showData :: Data a => a -> String
+showData = showConstr . toConstr
+
+-- | Return True if the given list has duplicate constructors.
+hasDuplicateContrs :: Data a => [a] -> Bool
+hasDuplicateContrs l = length l /= length (nubBy ((==) `on` showData) l)
