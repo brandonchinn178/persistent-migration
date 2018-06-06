@@ -61,8 +61,9 @@ migration =
 
   -- second commit
   , Operation (1 ~> 2) $ DropColumn ("person", "alive")
-  , Operation (0 ~> 2) $ DropColumn ("person", "alive")
-    -- A contrived example of defining shorter paths for equivalent operations
+  , Operation (0 ~> 2) $ createPerson{ctSchema = filter ((/= "alive") . colName) $ ctSchema createPerson}
+    -- Can define shorter paths for equivalent operations; version 2 should result in the same schema
+    -- regardless of the path taken to get there.
 
   -- second commit
   , Operation (2 ~> 3) $ AddColumn "person" (Column "gender" SqlString []) Nothing
