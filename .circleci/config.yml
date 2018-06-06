@@ -15,7 +15,9 @@ aliases:
   - &install-stack
     run:
       name: Install stack
-      command: curl -sSL https://get.haskellstack.org/ | sh
+      command: |
+        curl -sSL https://get.haskellstack.org/ | sh
+        stack --version
 
   # cache
   - &build-cache-key
@@ -29,7 +31,7 @@ aliases:
         )
         cat "${FILES[@]}" > cache-key.txt
   - &cache-key
-    v1-{{ checksum "cache-key.txt" }}
+    v2-{{ checksum "cache-key.txt" }}
   - &build-deps
     run:
       name: Build external dependencies
@@ -81,6 +83,7 @@ jobs:
           key: *cache-key
           paths:
             - ~/.stack
+            - .stack-work
       - *run-build
       - persist_to_workspace:
           root: .
