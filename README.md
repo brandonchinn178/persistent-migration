@@ -79,7 +79,7 @@ migration =
 
 ```
 import Database.Persist.Migration (checkMigration)
-import Database.Persist.Migration.Sqlite (runMigration)
+import Database.Persist.Migration.Postgres (runMigration)
 
 -- the migration defined above
 import MyMigration (migration)
