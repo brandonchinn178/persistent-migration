@@ -12,9 +12,11 @@
 
 ## Run tests
 
-* `stack test persistent-migration-goldens`
+* `stack test :persistent-migration-goldens`
     * Runs the golden tests
     * To accept goldens changes, run with `--test-arguments '--accept'`
+* `stack test :persistent-migration-integration`
+    * Runs integration tests
 
 ## Linting
 

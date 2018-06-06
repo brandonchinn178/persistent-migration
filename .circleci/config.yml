@@ -44,10 +44,14 @@ aliases:
       command: stack build --test --no-run-tests
 
   # test steps
-  - &run-test
+  - &run-unit-tests
     run:
-      name: Run tests
-      command: stack test
+      name: Run unit tests
+      command: stack test :persistent-migration-goldens
+  - &run-integration-tests
+    run:
+      name: Run integration tests
+      command: stack test :persistent-migration-integration
   - &run-hlint
     run:
       name: Run HLint
@@ -90,7 +94,7 @@ jobs:
           paths:
               - .stack-work
 
-  test:
+  unit-tests:
     <<: *docker-linux
     steps:
       - checkout
@@ -99,7 +103,18 @@ jobs:
       - *install-stack
       - restore_cache:
           key: *cache-key
-      - *run-test
+      - *run-unit-tests
+
+  integration-tests:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *run-integration-tests
 
   hlint:
     <<: *docker-linux
@@ -132,7 +147,10 @@ workflows:
       - build:
           requires:
             - prebuild
-      - test:
+      - unit-tests:
+          requires:
+            - build
+      - integration-tests:
           requires:
             - build
       - hlint:
