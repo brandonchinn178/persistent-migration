@@ -12,7 +12,7 @@ import Data.Text.Lazy (fromStrict)
 import qualified Data.Text.Lazy.Encoding as Text
 import Database.Persist.Migration
 import Database.Persist.Sql (SqlType(..))
-import Database.Persist.TestUtils
+import Database.Persist.TestBackends
     (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
 import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Tasty.Golden (goldenVsString)
