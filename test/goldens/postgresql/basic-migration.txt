@@ -1,0 +1,4 @@
+CREATE TABLE "person"("id" INT4,"name" VARCHAR NOT NULL,"age" INT4 NOT NULL,"alive" BOOLEAN NOT NULL DEFAULT TRUE,"hometown" INT8 REFERENCES "cities"("id"),PRIMARY KEY (id),UNIQUE (name))
+ALTER TABLE "person" ADD COLUMN "gender" VARCHAR
+ALTER TABLE "person" DROP COLUMN "alive"
+DROP TABLE "person"

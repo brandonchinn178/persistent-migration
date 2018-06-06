@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines a migration framework for the persistent library.
 -}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -21,6 +22,7 @@ module Database.Persist.Migration.Internal where
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
+import Data.Data (Data, showConstr, toConstr)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
@@ -167,8 +169,8 @@ data AddColumn = AddColumn
   { acTable   :: Text
   , acColumn  :: Column
   , acDefault :: Maybe Text
-    -- ^ if the column is non-nullable and doesn't have a default, need to define a default for
-    -- existing rows.
+    -- ^ The default for existing rows (may be different from the default for future rows). Required
+    -- if the column is non-nullable and doesn't have a default
   } deriving (Show)
 
 instance Migrateable AddColumn where
@@ -231,17 +233,29 @@ data Column = Column
 
 -- | Return whether the given column is NOT NULL and doesn't have a default specified.
 isNotNullAndNoDefault :: Column -> Bool
-isNotNullAndNoDefault Column{..} = NotNull `elem` colProps && any isDefault colProps
+isNotNullAndNoDefault Column{..} = isNotNull && not hasDefault
   where
-    isDefault (Defaults _) = True
-    isDefault _ = False
+    isNotNull = hasColumnProp "NotNull" colProps
+    hasDefault = hasColumnProp "Defaults" colProps
 
 -- | A property for a 'Column'.
 data ColumnProp
   = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
   | Defaults Text -- ^ Set the default for inserted rows without a value specified for the column
   | ForeignKey ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
-  deriving (Show,Eq)
+  deriving (Show,Eq,Data)
+
+-- | Return whether the given 'ColumnProp' matches the given name.
+matchesColumnProp :: String -> ColumnProp -> Bool
+matchesColumnProp name = (name ==) . showConstr . toConstr
+
+-- | Return whether the given 'ColumnProp' is in the list of 'ColumnProp's.
+hasColumnProp :: String -> [ColumnProp] -> Bool
+hasColumnProp name = any (matchesColumnProp name)
+
+-- | Filter the given 'ColumnProp' from the list of 'ColumnProp's.
+excludeColumnProp :: String -> [ColumnProp] -> [ColumnProp]
+excludeColumnProp name = filter (matchesColumnProp name)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint

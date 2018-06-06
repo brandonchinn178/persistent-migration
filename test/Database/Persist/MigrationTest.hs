@@ -1,23 +1,26 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Persist.MigrationTest where
+module Database.Persist.MigrationTest (testMigrations) where
 
 import Control.Monad.Reader (runReaderT)
+import Data.ByteString.Lazy (ByteString)
+import Data.Char (toLower)
 import Data.Text (Text)
+import qualified Data.Text as Text
+import Data.Text.Lazy (fromStrict)
+import qualified Data.Text.Lazy.Encoding as Text
 import Database.Persist.Migration
 import Database.Persist.Sql (SqlType(..))
-import Database.Persist.TestUtils
-import Test.Hspec.Expectations
+import Database.Persist.TestBackends
+    (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
+import Test.Tasty (TestName, TestTree, testGroup)
+import Test.Tasty.Golden (goldenVsString)
 
-getTestMigration :: Migration -> IO [Text]
-getTestMigration migration = do
-  testSqlBackend <- initSqlBackend
-  runReaderT (getMigration testMigrateBackend migration) testSqlBackend
-
-unit_basic_migration :: Expectation
-unit_basic_migration = getTestMigration migration `shouldReturn` migrationText
-  where
-    migration =
+-- | Build a test suite for the given MigrateBackend.
+testMigrations :: String -> MigrateBackend -> TestTree
+testMigrations label backend = testGroup label
+  [ testGoldens' "Basic migration" defaultDatabase
       [ Operation (0 ~> 1) $
           CreateTable
             { ctName = "person"
@@ -37,30 +40,47 @@ unit_basic_migration = getTestMigration migration `shouldReturn` migrationText
       , Operation (2 ~> 3) $ DropColumn ("person", "alive")
       , Operation (3 ~> 4) $ DropTable "person"
       ]
-    migrationText =
-      [ "CREATE TABLE person"
-      , "ADD COLUMN person.gender"
-      , "DROP COLUMN person.alive"
-      , "DROP TABLE person"
-      ]
-
-unit_some_done :: Expectation
-unit_some_done = withTestBackend $ do
-  modifyTestBackend $ \backend -> backend{version = Just 1}
-  getTestMigration migration `shouldReturn` migrationText
-  where
-    migration =
+  , testGoldens' "Partial migration" (withVersion 1)
       [ Operation (0 ~> 1) $ CreateTable "person" [] []
       , Operation (1 ~> 2) $ DropTable "person"
       ]
-    migrationText = ["DROP TABLE person"]
-
-unit_all_done :: Expectation
-unit_all_done = withTestBackend $ do
-  modifyTestBackend $ \backend -> backend{version = Just 2}
-  getTestMigration migration `shouldReturn` []
-  where
-    migration =
+  , testGoldens' "Complete migration" (withVersion 2)
       [ Operation (0 ~> 1) $ CreateTable "person" [] []
       , Operation (1 ~> 2) $ DropTable "person"
       ]
+  , testGoldens' "Migration with shorter path" defaultDatabase
+      [ Operation (0 ~> 1) $ CreateTable "person" [] []
+      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
+      , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
+      ]
+  , testGoldens' "Partial migration avoids shorter path" (withVersion 1)
+      [ Operation (0 ~> 1) $ CreateTable "person" [] []
+      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
+      , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
+      ]
+  ]
+  where
+    testGoldens' = testGoldens label backend
+
+{- Helpers -}
+
+-- | Run a goldens test.
+testGoldens :: String -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
+testGoldens label backend name testBackend migration = goldenVsString name goldenFile $ do
+  setDatabase testBackend
+  textsToByteString <$> getMigration' migration
+  where
+    goldenFile = "test/goldens/" ++ label ++ "/" ++ map slugify name ++ ".txt"
+    slugify = \case
+      ' ' -> '-'
+      x -> toLower x
+
+    getMigration' :: Migration -> IO [Text]
+    getMigration' = withTestBackend . runReaderT . getMigration backend
+
+    textsToByteString :: [Text] -> ByteString
+    textsToByteString = Text.encodeUtf8 . fromStrict . Text.unlines
+
+-- | Set the version in the MockDatabase.
+withVersion :: Version -> MockDatabase
+withVersion v = defaultDatabase{version = Just v}
