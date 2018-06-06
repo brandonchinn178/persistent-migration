@@ -33,8 +33,8 @@ createPerson = CreateTable
       [ Column "id" SqlInt32 []
       , Column "name" SqlString [NotNull]
       , Column "age" SqlInt32 [NotNull]
-      , Column "alive" SqlBool [NotNull, Defaults "TRUE"]
-      , Column "hometown" SqlInt64 [ForeignKey ("cities", "id")]
+      , Column "alive" SqlBool [NotNull, Default "TRUE"]
+      , Column "hometown" SqlInt64 [References ("cities", "id")]
       ]
   , ctConstraints =
       [ PrimaryKey ["id"]
