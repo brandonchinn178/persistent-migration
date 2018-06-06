@@ -33,8 +33,8 @@ createPerson = CreateTable
       [ Column "id" SqlInt32 []
       , Column "name" SqlString [NotNull]
       , Column "age" SqlInt32 [NotNull]
-      , Column "alive" SqlBool [NotNull, Defaults "TRUE"]
-      , Column "hometown" SqlInt64 [ForeignKey ("cities", "id")]
+      , Column "alive" SqlBool [NotNull, Default "TRUE"]
+      , Column "hometown" SqlInt64 [References ("cities", "id")]
       ]
   , ctConstraints =
       [ PrimaryKey ["id"]
@@ -61,8 +61,9 @@ migration =
 
   -- second commit
   , Operation (1 ~> 2) $ DropColumn ("person", "alive")
-  , Operation (0 ~> 2) $ DropColumn ("person", "alive")
-    -- A contrived example of defining shorter paths for equivalent operations
+  , Operation (0 ~> 2) $ createPerson{ctSchema = filter ((/= "alive") . colName) $ ctSchema createPerson}
+    -- Can define shorter paths for equivalent operations; version 2 should result in the same schema
+    -- regardless of the path taken to get there.
 
   -- second commit
   , Operation (2 ~> 3) $ AddColumn "person" (Column "gender" SqlString []) Nothing
@@ -79,7 +80,7 @@ migration =
 
 ```
 import Database.Persist.Migration (checkMigration)
-import Database.Persist.Migration.Sqlite (runMigration)
+import Database.Persist.Migration.Postgres (runMigration)
 
 -- the migration defined above
 import MyMigration (migration)

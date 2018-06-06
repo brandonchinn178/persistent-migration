@@ -75,12 +75,12 @@ addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
     createQuery = alterTable <> "ADD COLUMN " <> showColumn acColumn{colProps = createProps}
     createProps = case acDefault of
       Nothing -> colProps
-      Just existDef -> Defaults existDef : excludeColumnProp "Defaults" colProps
+      Just existDef -> Default existDef : excludeColumnProp "Default" colProps
     -- The ALTER query to set/drop the default (if necessary)
     alterColumn = alterTable <> "ALTER COLUMN " <> quote colName <> " "
     alterQuery = (<$> acDefault) . const . (alterColumn <>) $
-      case find (matchesColumnProp "Defaults") colProps of
-        Just (Defaults newDef) -> "SET DEFAULT " <> newDef
+      case find (matchesColumnProp "Default") colProps of
+        Just (Default newDef) -> "SET DEFAULT " <> newDef
         Just _ -> error "matchesColumnProp returned an invalid constructor"
         Nothing -> "DROP DEFAULT"
 
@@ -121,8 +121,8 @@ showSqlType = \case
 showColumnProp :: ColumnProp -> Text
 showColumnProp = \case
   NotNull -> "NOT NULL"
-  Defaults def -> "DEFAULT " <> def
-  ForeignKey (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
+  Default def -> "DEFAULT " <> def
+  References (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
 
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text
