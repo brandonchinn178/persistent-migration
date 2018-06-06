@@ -1,26 +1,8 @@
-{-# OPTIONS_GHC -F -pgmF tasty-discover -fno-warn-unused-imports #-}
+import Database.Persist.MigrationTest (testMigrations)
+import qualified Database.Persist.Migration.Postgres as Postgres
+import Test.Tasty
 
--- In order to have auto-discovery of tests, this module only contains the above GHC pragma. Tests
--- can be included in any file in the directory containing this file or its subdirectories and the
--- above pragma will instruct GHC to use tasty-discover as a preprocessor in the compilation step to
--- analyze all files within this directory tree.
---
--- The tasty-discover preprocessor will parse all Haskell files it finds and extract tests to run
--- based on the names of the function defining them. That is
---
---  * a `prop_smth` function specifies a QuickCheck/SmallCheck property
---  * a `unit_smth` function specifies a HUnit test case
---  * a `test_smth` is a list of other tests, a list of @TestTree@s. These tests don't need to
---    follow this naming convention. It's preferable to avoid using `test_` prefix anyway.
---
--- Any other function will be ignored. However, the entire module will still be compiled.
---
--- The output of the test runner will strip the prefix and replace subsequent `_`s with spaces.
---
--- Note that there is a bug in tasty-th which doesn't parse correctly code within {- ... -}
--- comments. If you want to disable a test, either comment it with `--` or remove the prefix.
---
--- Also note that since the test auto-discovery uses Template Haskell, the error messages will point
--- to a file "test/Main.hs" (just like this) but on an invalid line. That's why all this description
--- is written here, so someone getting confused by that error message can understand what is
--- happening.
+main :: IO ()
+main = defaultMain $ testGroup "persistent-migration-goldens"
+  [ testMigrations "postgresql" Postgres.backend
+  ]

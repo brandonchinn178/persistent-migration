@@ -64,7 +64,7 @@ createTable' ifNotExists CreateTable{..} = return
     tableDefs = map showColumn ctSchema ++ map showTableConstraint ctConstraints
 
 dropTable' :: DropTable -> SqlPersistT IO [Text]
-dropTable' DropTable{..} = return ["DROP TABLE " <> dtName]
+dropTable' DropTable{..} = return ["DROP TABLE " <> quote dtName]
 
 addColumn' :: AddColumn -> SqlPersistT IO [Text]
 addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery

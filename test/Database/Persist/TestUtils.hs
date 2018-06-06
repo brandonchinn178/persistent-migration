@@ -2,68 +2,58 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Persist.TestUtils where
+module Database.Persist.TestUtils
+  ( MockDatabase(..)
+  , defaultDatabase
+  , setDatabase
+  , withTestBackend
+  ) where
 
+import Control.Monad.IO.Class (liftIO)
 import Data.Conduit.List (sourceList)
-import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
-import Data.Monoid ((<>))
-import Database.Persist.Migration
+import Database.Persist.Migration (Version)
 import Database.Persist.Sql (PersistValue(..), SqlBackend(..), Statement(..))
 import System.IO.Unsafe (unsafePerformIO)
-import Test.Hspec.Expectations (Expectation)
 
 {- Mock test database -}
 
 -- | The mock database backend for testing.
-newtype TestBackend = TestBackend
+newtype MockDatabase = MockDatabase
   { version :: Maybe Version
   }
 
--- | The global test backend.
-testBackend :: IORef TestBackend
-testBackend = unsafePerformIO $ newIORef (TestBackend Nothing)
-{-# NOINLINE testBackend #-}
+-- | The default test database.
+defaultDatabase :: MockDatabase
+defaultDatabase = MockDatabase Nothing
 
--- | Run the given test with an initialized backend.
-withTestBackend :: Expectation -> Expectation
-withTestBackend test = writeIORef testBackend (TestBackend Nothing) >> test
+-- | The global test database.
+mockDatabase :: IORef MockDatabase
+mockDatabase = unsafePerformIO $ newIORef defaultDatabase
+{-# NOINLINE mockDatabase #-}
 
--- | Modify the mock database.
-modifyTestBackend :: (TestBackend -> TestBackend) -> IO ()
-modifyTestBackend = modifyIORef testBackend
+-- | Set the test database.
+setDatabase :: MockDatabase -> IO ()
+setDatabase = writeIORef mockDatabase
 
-{- Mock persistent backends -}
+{- Mock SqlBackend -}
 
--- | A mock migration backend for testing.
-testMigrateBackend :: MigrateBackend
-testMigrateBackend = MigrateBackend
-  { createTable = \ifNotExists CreateTable{ctName} ->
-      return ["CREATE TABLE " <> (if ifNotExists then "IF NOT EXISTS " else "") <> ctName]
-  , dropTable = \DropTable{dtName} ->
-      return ["DROP TABLE " <> dtName]
-  , addColumn = \AddColumn{acTable, acColumn} ->
-      return ["ADD COLUMN " <> dotted (acTable, colName acColumn)]
-  , dropColumn = \DropColumn{dcColumn} ->
-      return ["DROP COLUMN " <> dotted dcColumn]
-  }
-
--- | Initialize a mock backend database for testing.
-initSqlBackend :: IO SqlBackend
-initSqlBackend = do
+-- | Initialize a mock SqlBackend for testing.
+withTestBackend :: (SqlBackend -> IO a) -> IO a
+withTestBackend action = do
   smap <- newIORef Map.empty
-  return SqlBackend
+  action SqlBackend
     { connPrepare = \case
-        "CREATE TABLE IF NOT EXISTS persistent_migration" -> return stmt
-        "SELECT version FROM persistent_migration ORDER BY timestamp DESC LIMIT 1" -> do
-          TestBackend{version} <- readIORef testBackend
-          let result = pure . PersistInt64 . fromIntegral <$> maybeToList version
-
+        "SELECT version FROM persistent_migration ORDER BY timestamp DESC LIMIT 1" ->
           return stmt
-            { stmtQuery = const $ return $ sourceList result
+            { stmtQuery = \_ -> do
+                MockDatabase{version} <- liftIO $ readIORef mockDatabase
+                let result = pure . PersistInt64 . fromIntegral <$> maybeToList version
+                return $ sourceList result
             }
-        _ -> error "connPrepare"
+        _ -> return stmt
     , connStmtMap = smap
     , connInsertSql = error "connInsertSql"
     , connUpsertSql = error "connUpsertSql"

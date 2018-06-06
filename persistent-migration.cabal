@@ -35,7 +35,7 @@ library
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances
 
-test-suite persistent-migration-test
+test-suite persistent-migration-goldens
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test
   default-language:   Haskell2010
@@ -43,15 +43,14 @@ test-suite persistent-migration-test
   other-modules:      Database.Persist.MigrationTest
                       Database.Persist.TestUtils
   build-depends: base
+               , bytestring
                , conduit
                , containers
-               , hspec-expectations
                , mtl
                , persistent
                , persistent-migration
                , tasty
-               , tasty-discover
-               , tasty-hunit
+               , tasty-golden
                , text
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
