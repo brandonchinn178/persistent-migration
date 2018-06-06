@@ -15,7 +15,9 @@ aliases:
   - &install-stack
     run:
       name: Install stack
-      command: curl -sSL https://get.haskellstack.org/ | sh
+      command: |
+        curl -sSL https://get.haskellstack.org/ | sh
+        stack --version
 
   # cache
   - &build-cache-key
