@@ -29,7 +29,7 @@ aliases:
         )
         cat "${FILES[@]}" > cache-key.txt
   - &cache-key
-    v1-{{ checksum "cache-key.txt" }}
+    v2-{{ checksum "cache-key.txt" }}
   - &build-deps
     run:
       name: Build external dependencies
@@ -81,6 +81,7 @@ jobs:
           key: *cache-key
           paths:
             - ~/.stack
+            - .stack-work
       - *run-build
       - persist_to_workspace:
           root: .
