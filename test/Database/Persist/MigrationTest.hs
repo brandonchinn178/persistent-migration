@@ -48,6 +48,16 @@ testMigrations label backend = testGroup label
       [ Operation (0 ~> 1) $ CreateTable "person" [] []
       , Operation (1 ~> 2) $ DropTable "person"
       ]
+  , testGoldens' "Migration with shorter path" defaultDatabase
+      [ Operation (0 ~> 1) $ CreateTable "person" [] []
+      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
+      , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
+      ]
+  , testGoldens' "Partial migration avoids shorter path" (withVersion 1)
+      [ Operation (0 ~> 1) $ CreateTable "person" [] []
+      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
+      , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
+      ]
   ]
   where
     testGoldens' = testGoldens label backend
