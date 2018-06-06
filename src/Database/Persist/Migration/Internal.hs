@@ -164,7 +164,11 @@ instance Migrateable CreateTable where
     mapM_ validateColumn ctSchema
     when (hasDuplicateContrs ctConstraints) $
       Left $ "Duplicate table constraints detected: " ++ show ct
-    -- TODO: check constraint columns match existing columns in schema
+
+    let constraintCols = concatMap getConstraintColumns ctConstraints
+        schemaCols = map colName ctSchema
+    when (any (`notElem` schemaCols) constraintCols) $
+      Left $ "Table constraint references non-existent column: " ++ show ct
 
   getMigrationText backend = createTable backend False
 
@@ -282,6 +286,12 @@ data TableConstraint
   = PrimaryKey [Text] -- ^ PRIMARY KEY (col1, col2, ...)
   | Unique [Text] -- ^ UNIQUE (col1, col2, ...)
   deriving (Show,Data)
+
+-- | Get the columns defined in the given TableConstraint.
+getConstraintColumns :: TableConstraint -> [Text]
+getConstraintColumns = \case
+  PrimaryKey cols -> cols
+  Unique cols -> cols
 
 {- Helpers -}
 

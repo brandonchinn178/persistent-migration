@@ -63,6 +63,8 @@ testMigrations label backend = testGroup label
       CreateTable "person"
         [Column "id1" SqlInt32 [], Column "id2" SqlInt32 []]
         [PrimaryKey ["id1"], PrimaryKey ["id2"]]
+  , goldenShow' "Constraint references non-existent column" $ validateOperation $
+      CreateTable "person" [] [PrimaryKey ["id"]]
   , goldenShow' "Duplicate ColumnProps in AddColumn" $ validateOperation $
       AddColumn "person" (Column "age" SqlInt32 [Default "0", Default "1"]) Nothing
   , goldenShow' "Non-null AddColumn without default" $ validateOperation $
