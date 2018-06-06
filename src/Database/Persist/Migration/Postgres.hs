@@ -85,7 +85,9 @@ addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
         Nothing -> "DROP DEFAULT"
 
 dropColumn' :: DropColumn -> SqlPersistT IO [Text]
-dropColumn' = undefined
+dropColumn' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUMN " <> quote col]
+  where
+    (tab, col) = dcColumn
 
 {- Helpers -}
 
