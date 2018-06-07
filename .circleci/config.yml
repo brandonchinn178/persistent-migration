@@ -47,7 +47,7 @@ aliases:
   - &run-unit-tests
     run:
       name: Run unit tests
-      command: stack test :persistent-migration-goldens
+      command: stack test :persistent-migration-test
   - &run-integration-tests
     run:
       name: Run integration tests

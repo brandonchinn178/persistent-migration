@@ -1,20 +1,15 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Persist.MigrationTest (testMigrations) where
+module Test.Unit.Migration (testMigrations) where
 
 import Control.Monad.Reader (runReaderT)
-import Data.Char (toLower)
-import Data.Text (Text)
 import qualified Data.Text as Text
-import Data.Text.Lazy (fromStrict)
-import qualified Data.Text.Lazy.Encoding as Text
 import Database.Persist.Migration
 import Database.Persist.Sql (SqlType(..))
-import Database.Persist.TestBackends
-    (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
 import Test.Tasty (TestName, TestTree, testGroup)
-import Test.Tasty.Golden (goldenVsString)
+import Test.Unit.Backends (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
+import Test.Utils.Goldens (goldenVsString)
 
 -- | Build a test suite for the given MigrateBackend.
 testMigrations :: String -> MigrateBackend -> TestTree
@@ -76,23 +71,13 @@ testMigrations label backend = testGroup label
 
 {- Helpers -}
 
--- | Run a goldens test where the goldens file is generated from the name.
-goldenVsString' :: String -> String -> IO Text -> TestTree
-goldenVsString' label name action = goldenVsString name goldenFile $ toByteString <$> action
-  where
-    goldenFile = "test/goldens/" ++ label ++ "/" ++ map slugify name ++ ".txt"
-    slugify = \case
-      ' ' -> '-'
-      x -> toLower x
-    toByteString = Text.encodeUtf8 . fromStrict
-
 -- | Run a goldens test for a pure Showable value.
 goldenShow :: Show a => String -> String -> a -> TestTree
-goldenShow label name = goldenVsString' label name . return . Text.pack . show
+goldenShow label name = goldenVsString "unit" label name . return . Text.pack . show
 
 -- | Run a goldens test for a migration.
 goldenMigration :: String -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
-goldenMigration label backend name testBackend migration = goldenVsString' label name $ do
+goldenMigration label backend name testBackend migration = goldenVsString "unit" label name $ do
   setDatabase testBackend
   Text.unlines <$> getMigration' migration
   where

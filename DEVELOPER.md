@@ -12,11 +12,14 @@
 
 ## Run tests
 
-* `stack test :persistent-migration-goldens`
-    * Runs the golden tests
-    * To accept goldens changes, run with `--test-arguments '--accept'`
+* `stack test :persistent-migration-test`
+    * Runs unit tests
+    * Frameworks: tasty-golden
 * `stack test :persistent-migration-integration`
     * Runs integration tests
+    * Frameworks: tasty-golden, tasty-quickcheck
+
+To accept goldens changes, run with `--test-arguments '--accept'`
 
 ## Linting
 

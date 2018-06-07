@@ -2,7 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Persist.TestBackends
+module Test.Unit.Backends
   ( MockDatabase(..)
   , defaultDatabase
   , setDatabase
