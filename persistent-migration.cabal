@@ -55,3 +55,26 @@ test-suite persistent-migration-test
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances
+
+test-suite persistent-migration-integration
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  default-language:   Haskell2010
+  main-is:            Integration.hs
+  other-modules:      Test.Integration.Migration
+                      Test.Utils.Goldens
+  build-depends: base
+               , bytestring
+               , monad-logger
+               , process
+               , persistent
+               , persistent-migration
+               , persistent-postgresql
+               , resource-pool
+               , tasty
+               , tasty-golden
+               , temporary
+               , text
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
+    -Wredundant-constraints -Wnoncanonical-monad-instances
