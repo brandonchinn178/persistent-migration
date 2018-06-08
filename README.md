@@ -38,7 +38,7 @@ createPerson = CreateTable
       ]
   , ctConstraints =
       [ PrimaryKey ["id"]
-      , Unique ["name"]
+      , Unique ["name", "age", "hometown"]
       ]
   }
 

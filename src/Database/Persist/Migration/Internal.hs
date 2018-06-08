@@ -142,7 +142,7 @@ runMigration backend settings@MigrateSettings{..} migration = do
   getMigration backend settings migration >>= rawExecute'
   now <- liftIO getCurrentTime
   let version = getLatestVersion migration
-  rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?)"
+  rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?, ?)"
     [ PersistInt64 $ fromIntegral version
     , PersistText $ Text.pack $ fromMaybe (show version) $ versionToLabel version
     , PersistUTCTime now
@@ -295,7 +295,7 @@ hasColumnProp name = any (matchesColumnProp name)
 
 -- | Filter the given 'ColumnProp' from the list of 'ColumnProp's.
 excludeColumnProp :: String -> [ColumnProp] -> [ColumnProp]
-excludeColumnProp name = filter (matchesColumnProp name)
+excludeColumnProp name = filter (not . matchesColumnProp name)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint
