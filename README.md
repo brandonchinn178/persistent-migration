@@ -95,3 +95,5 @@ main = do
   -- fails if persistent detects more migrations not accounted for
   checkMigration migrationDef
 ```
+
+For more examples, see `test/Integration/Migration.hs`.

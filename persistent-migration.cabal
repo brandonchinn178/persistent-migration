@@ -20,9 +20,9 @@ library
   default-language:   Haskell2010
   exposed-modules:    Database.Persist.Migration
                       Database.Persist.Migration.Postgres
+                      Database.Persist.Migration.Sql
   other-modules:      Database.Persist.Migration.Internal
                       Database.Persist.Migration.Plan
-                      Database.Persist.Migration.Sql
   build-depends:      base >= 4.7 && < 5
                     , containers
                     , fgl
@@ -66,10 +66,12 @@ test-suite persistent-migration-integration
   build-depends: base
                , bytestring
                , monad-logger
+               , mtl
                , process
                , persistent
                , persistent-migration
                , persistent-postgresql
+               , persistent-template
                , resource-pool
                , tasty
                , tasty-golden

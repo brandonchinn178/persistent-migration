@@ -35,10 +35,10 @@ withPostgres dir f = withResource startPostgres stopPostgres $ f . fmap snd
       -- initialize local postgres server
       callProcess' "initdb" ["-D", dir']
       ph <- spawnProcess' "postgres" ["-h", "", "-k", dir', "-D", dir']
-      threadDelay 10000
-      callProcess' "createdb" ["-h", dir', "db"]
+      threadDelay 100000
+      callProcess' "createdb" ["-h", dir', "test_db"]
       -- create a connection Pool
-      let connString = ByteString.pack $ "postgresql:///db?host=" ++ dir'
+      let connString = ByteString.pack $ "postgresql:///test_db?host=" ++ dir'
       pool <- runNoLoggingT $ createPostgresqlPool connString 4
       return (ph, pool)
     stopPostgres (ph, pool) = do
