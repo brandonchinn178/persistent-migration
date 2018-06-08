@@ -51,7 +51,7 @@ manualMigration =
       CreateTable
         { ctName = "city"
         , ctSchema =
-            [ Column "id" SqlInt64 [NotNull]
+            [ Column "id" SqlInt64 [NotNull, AutoIncrement]
             , Column "name" SqlString [NotNull]
             , Column "state" SqlString [NotNull]
             ]
@@ -64,7 +64,7 @@ manualMigration =
       CreateTable
         { ctName = "person"
         , ctSchema =
-            [ Column "id" SqlInt64 [NotNull]
+            [ Column "id" SqlInt64 [NotNull, AutoIncrement]
             , Column "name" SqlString [NotNull]
             , Column "hometown" SqlInt64 [NotNull, References ("city", "id")]
             ]

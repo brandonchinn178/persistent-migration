@@ -93,7 +93,7 @@ getCurrVersion backend = do
     migrationSchema = CreateTable
       { ctName = "persistent_migration"
       , ctSchema =
-          [ Column "id" SqlInt32 [NotNull]
+          [ Column "id" SqlInt32 [NotNull, AutoIncrement]
           , Column "version" SqlInt32 [NotNull]
           , Column "label" SqlString []
           , Column "timestamp" SqlDayTime [NotNull]
@@ -282,7 +282,8 @@ data ColumnProp
   = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
   | Default Text -- ^ Set the default for inserted rows without a value specified for the column
   | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
-  deriving (Show,Data)
+  | AutoIncrement -- ^ Makes a column auto-incrementing
+  deriving (Show,Eq,Data)
 
 -- | Return whether the given 'ColumnProp' matches the given name.
 matchesColumnProp :: String -> ColumnProp -> Bool

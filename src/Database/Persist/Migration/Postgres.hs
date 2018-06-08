@@ -97,8 +97,12 @@ showColumn :: Column -> Text
 showColumn Column{..} =
   Text.unwords
     $ quote colName
-    : showSqlType colType
+    : sqlType
     : map showColumnProp colProps
+  where
+    sqlType = if AutoIncrement `elem` colProps
+      then "SERIAL"
+      else showSqlType colType
 
 -- | Show a 'SqlType'. See `showSqlType` from `Database.Persist.Postgresql`.
 showSqlType :: SqlType -> Text
@@ -124,6 +128,7 @@ showColumnProp = \case
   NotNull -> "NOT NULL"
   Default def -> "DEFAULT " <> def
   References (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
+  AutoIncrement -> ""
 
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text

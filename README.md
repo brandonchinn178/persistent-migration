@@ -30,7 +30,7 @@ createPerson :: CreateTable
 createPerson = CreateTable
   { ctName = "person"
   , ctSchema =
-      [ Column "id" SqlInt32 []
+      [ Column "id" SqlInt32 [NotNull, AutoIncrement]
       , Column "name" SqlString [NotNull]
       , Column "age" SqlInt32 [NotNull]
       , Column "alive" SqlBool [NotNull, Default "TRUE"]
