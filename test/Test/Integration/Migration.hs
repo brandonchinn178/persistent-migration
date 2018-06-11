@@ -36,7 +36,6 @@ Person
   hometown CityId
   gender String Maybe
   colorblind Bool
-  diabetic Bool
   deriving Show
 City
   name String
@@ -86,9 +85,6 @@ manualMigration =
   -- add colorblind column, with everyone currently in the database being not colorblind
   , Operation (6 ~> 7) $
       AddColumn "person" (Column "colorblind" SqlBool [NotNull]) (Just "FALSE")
-  -- add diabetic column, default False, but everyone currently in the database is diabetic
-  , Operation (7 ~> 8) $
-      AddColumn "person" (Column "diabetic" SqlBool [NotNull, Default "FALSE"]) (Just "TRUE")
   ]
   where
     migrateGender = RawOperation "Convert binary sex column into stringly gender column" $
@@ -155,9 +151,9 @@ testMigration label backend getPool n populateDb = goldenShow label name $ do
     checkMigration autoMigration
     berkeley <- insert $ City "Berkeley" "CA"
     insertMany_
-      [ Person "Alice" berkeley (Just "Female") False False
-      , Person "Bob" berkeley (Just "Male") True False
-      , Person "Courtney" berkeley Nothing False True
+      [ Person "Alice" berkeley (Just "Female") False
+      , Person "Bob" berkeley (Just "Male") True
+      , Person "Courtney" berkeley Nothing False
       ]
     map entityVal <$> selectList [] []
 

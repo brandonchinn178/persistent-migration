@@ -17,7 +17,6 @@ module Database.Persist.Migration.Postgres
   , runMigration
   ) where
 
-import Data.List (find)
 import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
 import Data.Text (Text)
@@ -33,8 +32,6 @@ import Database.Persist.Migration
     , MigrateSettings
     , Migration
     , TableConstraint(..)
-    , excludeColumnProp
-    , matchesColumnProp
     )
 import qualified Database.Persist.Migration as Migration
 import Database.Persist.Migration.Sql (quote, uncommas)
@@ -73,17 +70,14 @@ addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
     Column{..} = acColumn
     alterTable = "ALTER TABLE " <> quote acTable <> " "
     -- The CREATE query with the default specified by AddColumn{acDefault}
-    createQuery = alterTable <> "ADD COLUMN " <> showColumn acColumn{colProps = createProps}
-    createProps = case acDefault of
-      Nothing -> colProps
-      Just existDef -> Default existDef : excludeColumnProp "Default" colProps
-    -- The ALTER query to set/drop the default (if necessary)
-    alterColumn = alterTable <> "ALTER COLUMN " <> quote colName <> " "
-    alterQuery = (<$> acDefault) . const . (alterColumn <>) $
-      case find (matchesColumnProp "Default") colProps of
-        Just (Default newDef) -> "SET DEFAULT " <> newDef
-        Just _ -> error "matchesColumnProp returned an invalid constructor"
-        Nothing -> "DROP DEFAULT"
+    createQuery = alterTable <> "ADD COLUMN " <> showColumn acColumn <> createDefault
+    createDefault = case acDefault of
+      Nothing -> ""
+      Just def -> " DEFAULT " <> def
+    -- The ALTER query to drop the default (if acDefault was set)
+    setJust v = fmap $ const v
+    alterQuery =
+      setJust (alterTable <> "ALTER COLUMN " <> quote colName <> " DROP DEFAULT") acDefault
 
 dropColumn' :: DropColumn -> SqlPersistT IO [Text]
 dropColumn' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUMN " <> quote col]
@@ -126,7 +120,6 @@ showSqlType = \case
 showColumnProp :: ColumnProp -> Text
 showColumnProp = \case
   NotNull -> "NOT NULL"
-  Default def -> "DEFAULT " <> def
   References (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
   AutoIncrement -> ""
 

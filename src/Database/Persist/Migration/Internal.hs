@@ -201,14 +201,13 @@ data AddColumn = AddColumn
   { acTable   :: Text
   , acColumn  :: Column
   , acDefault :: Maybe Text
-    -- ^ The default for existing rows (may be different from the default for future rows). Required
-    -- if the column is non-nullable and doesn't have a default
+    -- ^ The default for existing rows; required if the column is non-nullable
   } deriving (Show)
 
 instance Migrateable AddColumn where
   validateOperation ac@AddColumn{..} = do
     validateColumn acColumn
-    when (isNotNullAndNoDefault acColumn && isNothing acDefault) $
+    when (NotNull `elem` colProps acColumn && isNothing acDefault) $
       Left $ "Adding a non-nullable column requires a default: " ++ show ac
 
   getMigrationText = addColumn
@@ -265,13 +264,6 @@ data Column = Column
   , colProps :: [ColumnProp]
   } deriving (Show)
 
--- | Return whether the given column is NOT NULL and doesn't have a default specified.
-isNotNullAndNoDefault :: Column -> Bool
-isNotNullAndNoDefault Column{..} = isNotNull && not hasDefault
-  where
-    isNotNull = hasColumnProp "NotNull" colProps
-    hasDefault = hasColumnProp "Default" colProps
-
 -- | Validate a Column.
 validateColumn :: Column -> Either String ()
 validateColumn col@Column{..} = when (hasDuplicateContrs colProps) $
@@ -280,22 +272,9 @@ validateColumn col@Column{..} = when (hasDuplicateContrs colProps) $
 -- | A property for a 'Column'.
 data ColumnProp
   = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
-  | Default Text -- ^ Set the default for inserted rows without a value specified for the column
   | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
   | AutoIncrement -- ^ Makes a column auto-incrementing
   deriving (Show,Eq,Data)
-
--- | Return whether the given 'ColumnProp' matches the given name.
-matchesColumnProp :: String -> ColumnProp -> Bool
-matchesColumnProp name = (name ==) . showData
-
--- | Return whether the given 'ColumnProp' is in the list of 'ColumnProp's.
-hasColumnProp :: String -> [ColumnProp] -> Bool
-hasColumnProp name = any (matchesColumnProp name)
-
--- | Filter the given 'ColumnProp' from the list of 'ColumnProp's.
-excludeColumnProp :: String -> [ColumnProp] -> [ColumnProp]
-excludeColumnProp name = filter (not . matchesColumnProp name)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint

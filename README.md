@@ -33,7 +33,7 @@ createPerson = CreateTable
       [ Column "id" SqlInt32 [NotNull, AutoIncrement]
       , Column "name" SqlString [NotNull]
       , Column "age" SqlInt32 [NotNull]
-      , Column "alive" SqlBool [NotNull, Default "TRUE"]
+      , Column "alive" SqlBool [NotNull]
       , Column "hometown" SqlInt64 [References ("cities", "id")]
       ]
   , ctConstraints =
@@ -68,7 +68,7 @@ migration =
   -- second commit
   , Operation (2 ~> 3) $ AddColumn "person" (Column "gender" SqlString []) Nothing
   , Operation (3 ~> 4) $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just "0")
-    -- Non-null column without default for inserted rows needs a default for existing rows.
+    -- Non-null column needs a default for existing rows
 
   -- third commit
   , Operation (5 ~> 6) $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0")

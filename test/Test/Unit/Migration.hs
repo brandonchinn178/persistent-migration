@@ -22,7 +22,7 @@ testMigrations label backend = testGroup label
                 [ Column "id" SqlInt32 []
                 , Column "name" SqlString [NotNull]
                 , Column "age" SqlInt32 [NotNull]
-                , Column "alive" SqlBool [NotNull, Default "TRUE"]
+                , Column "alive" SqlBool [NotNull]
                 , Column "hometown" SqlInt64 [References ("cities", "id")]
                 ]
             , ctConstraints =
@@ -61,7 +61,7 @@ testMigrations label backend = testGroup label
   , goldenShow' "Constraint references non-existent column" $ validateOperation $
       CreateTable "person" [] [PrimaryKey ["id"]]
   , goldenShow' "Duplicate ColumnProps in AddColumn" $ validateOperation $
-      AddColumn "person" (Column "age" SqlInt32 [Default "0", Default "1"]) Nothing
+      AddColumn "person" (Column "age" SqlInt32 [NotNull, NotNull]) Nothing
   , goldenShow' "Non-null AddColumn without default" $ validateOperation $
       AddColumn "person" (Column "age" SqlInt32 [NotNull]) Nothing
   ]
