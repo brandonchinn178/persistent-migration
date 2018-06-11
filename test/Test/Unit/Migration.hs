@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Test.Unit.Migration (testMigrations) where
@@ -8,7 +7,8 @@ import qualified Data.Text as Text
 import Database.Persist.Migration
 import Database.Persist.Sql (SqlType(..))
 import Test.Tasty (TestName, TestTree, testGroup)
-import Test.Unit.Backends (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
+import Test.Unit.Backends
+    (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
 import Test.Utils.Goldens (goldenVsText)
 
 -- | Build a test suite for the given MigrateBackend.

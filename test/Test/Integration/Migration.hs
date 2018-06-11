@@ -22,12 +22,20 @@ import Data.Maybe (mapMaybe)
 import Data.Pool (Pool, withResource)
 import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
+import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
 import Database.Persist.Migration.Sql (interpolate)
-import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Sql
-    (PersistValue(..), Single(..), SqlBackend, SqlPersistT, SqlType(..), rawExecute, rawSql)
-import Database.Persist.TH (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
+    ( PersistValue(..)
+    , Single(..)
+    , SqlBackend
+    , SqlPersistT
+    , SqlType(..)
+    , rawExecute
+    , rawSql
+    )
+import Database.Persist.TH
+    (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import Test.Tasty (TestTree, testGroup)
 import Test.Utils.Goldens (goldenVsString)
 
@@ -81,7 +89,7 @@ manualMigration =
 
   -- change binary sex to stringly gender
   , Operation (3 ~> 4) $ AddColumn "person" (Column "gender" SqlString []) Nothing
-  , Operation (4 ~> 5) $ migrateGender
+  , Operation (4 ~> 5) migrateGender
   , Operation (5 ~> 6) $ DropColumn ("person", "sex")
   -- shortcut for databases that hadn't already added the sex column
   , Operation (2 ~> 6) $ AddColumn "person" (Column "gender" SqlString []) Nothing
