@@ -14,6 +14,7 @@
 
 module Test.Integration.Migration (testIntegration) where
 
+import Control.Exception (finally)
 import Control.Monad (unless)
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString.Lazy (ByteString, fromStrict)
@@ -144,36 +145,36 @@ testMigration label backend getPool n populateDb = goldenVsString "integration" 
       city = CityKey 1
       insertCity = insertKey city $ City "Berkeley" "CA"
 
-  -- test setup
-  unless (null setupMigration) $ do
-    doMigration setupMigration
-    -- populateDb scripts can use hometown=1
-    runSql pool insertCity
-  mapM_ (runSql pool) populateDb
+  res <- (`finally` cleanup pool) $ do
+    -- test setup
+    unless (null setupMigration) $ do
+      doMigration setupMigration
+      -- populateDb scripts can use hometown=1
+      runSql pool insertCity
+    mapM_ (runSql pool) populateDb
 
-  -- run migrations and check inserting current models works
-  doMigration manualMigration
-  res <- runSql pool $ do
-    checkMigration autoMigration
-    get city >>= \case
-      Just _ -> return ()
-      Nothing -> insertCity
-    insertMany_
-      [ Person "Alice" city (Just "Female") False
-      , Person "Bob" city (Just "Male") True
-      , Person "Courtney" city Nothing False
-      ]
-    map entityVal <$> selectList [] []
-
-  -- test cleanup
-  runSql pool $ rawExecute "DROP TABLE persistent_migration" []
-  runSql pool $ rawExecute "DROP TABLE person" []
-  runSql pool $ rawExecute "DROP TABLE city" []
+    -- run migrations and check inserting current models works
+    doMigration manualMigration
+    runSql pool $ do
+      checkMigration autoMigration
+      get city >>= \case
+        Just _ -> return ()
+        Nothing -> insertCity
+      insertMany_
+        [ Person "Alice" city (Just "Female") False
+        , Person "Bob" city (Just "Male") True
+        , Person "Courtney" city Nothing False
+        ]
+      map entityVal <$> selectList [] []
 
   return $ showPersons res
   where
     setupMigration = take n manualMigration
     name = "Migrate from " ++ show n
+    cleanup pool = runSql pool $ do
+      rawExecute "DROP TABLE persistent_migration" []
+      rawExecute "DROP TABLE person" []
+      rawExecute "DROP TABLE city" []
 
 -- | Display a Person as a YAML object.
 showPersons :: [Person] -> ByteString
