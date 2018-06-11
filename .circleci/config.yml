@@ -8,7 +8,7 @@ aliases:
     working_directory: /root/src
 
   # system dependencies
-  - &install-deps
+  - &install-system-deps
     run:
       name: Install system dependencies
       command: scripts/install-system-deps.sh
@@ -32,7 +32,7 @@ aliases:
         cat "${FILES[@]}" > cache-key.txt
   - &cache-key
     v2-{{ checksum "cache-key.txt" }}
-  - &build-deps
+  - &install-stack-deps
     run:
       name: Build external dependencies
       command: scripts/install-stack-deps.sh
@@ -78,11 +78,11 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
-      - *install-deps
+      - *install-system-deps
       - *install-stack
       - restore_cache:
           key: *cache-key
-      - *build-deps
+      - *install-stack-deps
       - save_cache:
           key: *cache-key
           paths:
@@ -111,6 +111,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
+      - *install-system-deps
       - *install-stack
       - restore_cache:
           key: *cache-key
