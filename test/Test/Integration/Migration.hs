@@ -23,7 +23,7 @@ import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist.Migration
 import Database.Persist.Migration.Sql (interpolate)
-import Database.Persist (Entity(..), insert, insertMany_, selectList)
+import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlBackend, SqlPersistT, SqlType(..), rawExecute, rawSql)
 import Database.Persist.TH (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
@@ -108,6 +108,8 @@ manualMigration =
 testIntegration :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testIntegration label backend getPool = testGroup label
   [ testMigration' 0 []
+  , testMigration' 1 []
+  , testMigration' 2 [rawExecute "INSERT INTO person(name,hometown) VALUES ('David',1)" []]
   ]
   where
     testMigration' = testMigration label backend getPool
@@ -139,24 +141,32 @@ testMigration
 testMigration label backend getPool n populateDb = goldenVsString "integration" label name $ do
   pool <- getPool
   let doMigration = runMigration' backend pool
+      city = CityKey 1
+      insertCity = insertKey city $ City "Berkeley" "CA"
 
   -- test setup
-  unless (null setupMigration) $ doMigration setupMigration
+  unless (null setupMigration) $ do
+    doMigration setupMigration
+    -- populateDb scripts can use hometown=1
+    runSql pool insertCity
   mapM_ (runSql pool) populateDb
 
   -- run migrations and check inserting current models works
   doMigration manualMigration
   res <- runSql pool $ do
     checkMigration autoMigration
-    berkeley <- insert $ City "Berkeley" "CA"
+    get city >>= \case
+      Just _ -> return ()
+      Nothing -> insertCity
     insertMany_
-      [ Person "Alice" berkeley (Just "Female") False
-      , Person "Bob" berkeley (Just "Male") True
-      , Person "Courtney" berkeley Nothing False
+      [ Person "Alice" city (Just "Female") False
+      , Person "Bob" city (Just "Male") True
+      , Person "Courtney" city Nothing False
       ]
     map entityVal <$> selectList [] []
 
   -- test cleanup
+  runSql pool $ rawExecute "DROP TABLE persistent_migration" []
   runSql pool $ rawExecute "DROP TABLE person" []
   runSql pool $ rawExecute "DROP TABLE city" []
 
