@@ -16,7 +16,6 @@ import Data.Graph.Inductive (Gr, mkGraph, sp)
 import Data.HashMap.Lazy ((!))
 import qualified Data.HashMap.Lazy as HashMap
 import qualified Data.IntSet as IntSet
-import Data.Maybe (fromJust)
 
 type Node = Int
 type Edge = (Int, Int)
@@ -24,12 +23,12 @@ type Edge = (Int, Int)
 -- | Given a list of edges and their data and a start/end node, return the shortest path.
 --
 -- Errors if no path is found.
-getPath :: [(Edge, a)] -> Node -> Node -> [a]
-getPath edgeData start end = map (edgeMap !) edgePath
+getPath :: [(Edge, a)] -> Node -> Node -> Maybe [a]
+getPath edgeData start end = map (edgeMap !) . nodesToEdges <$> sp start end graph
   where
+    graph = mkGraph' $ map fst edgeData
+    nodesToEdges nodes = zip nodes $ tail nodes
     edgeMap = HashMap.fromList edgeData
-    edgePath = zip nodePath $ tail nodePath
-    nodePath = fromJust . sp start end . mkGraph' $ map fst edgeData
 
 mkGraph' :: [Edge] -> Gr () Int
 mkGraph' edgeData = mkGraph nodes edges

@@ -109,8 +109,10 @@ getCurrVersion backend = do
       _ -> error "Invalid response from the database."
 
 -- | Get the migration plan given the current state of the database.
-getMigratePlan :: Migration -> Maybe Version -> Migration
-getMigratePlan migration mVersion = getPath edges start end
+getMigratePlan :: Migration -> Maybe Version -> Either (Version, Version) Migration
+getMigratePlan migration mVersion = case getPath edges start end of
+  Just path -> Right path
+  Nothing -> Left (start, end)
   where
     edges = map (\op@Operation{opPath} -> (opPath, op)) migration
     start = fromMaybe (getFirstVersion migration) mVersion
@@ -153,9 +155,10 @@ getMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> S
 getMigration backend _ migration = do
   either fail return $ mapM_ (\Operation{opOp} -> validateOperation opOp) migration
   currVersion <- getCurrVersion backend
-  let migratePlan = getMigratePlan migration currVersion
+  migratePlan <- either badPath return $ getMigratePlan migration currVersion
   concatMapM getMigrationText' migratePlan
   where
+    badPath (start, end) = fail $ "Could not find path: " ++ show start ++ " ~> " ++ show end
     -- Utilities
     concatMapM f = fmap concat . mapM f
     -- Operation helpers
