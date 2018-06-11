@@ -40,6 +40,7 @@ Person
 City
   name String
   state String
+  UniqueCity name state
   deriving Show
 |]
 
@@ -56,7 +57,7 @@ manualMigration =
             ]
         , ctConstraints =
             [ PrimaryKey ["id"]
-            , Unique ["state", "name"]
+            , Unique "unique_city" ["state", "name"]
             ]
         }
   , Operation (1 ~> 2) $

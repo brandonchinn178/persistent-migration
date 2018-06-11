@@ -126,5 +126,7 @@ showColumnProp = \case
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text
 showTableConstraint = \case
-  PrimaryKey cols -> "PRIMARY KEY (" <> uncommas cols <> ")"
-  Unique cols -> "UNIQUE (" <> uncommas cols <> ")"
+  PrimaryKey cols -> "PRIMARY KEY (" <> showCols cols <> ")"
+  Unique name cols -> "CONSTRAINT " <> quote name <> " UNIQUE (" <> showCols cols <> ")"
+  where
+    showCols = uncommas . map quote

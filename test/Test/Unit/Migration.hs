@@ -27,7 +27,7 @@ testMigrations label backend = testGroup label
                 ]
             , ctConstraints =
                 [ PrimaryKey ["id"]
-                , Unique ["name"]
+                , Unique "unique_name" ["name"]
                 ]
             }
       , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing

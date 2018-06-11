@@ -279,14 +279,14 @@ data ColumnProp
 -- | Table constraints in a CREATE query.
 data TableConstraint
   = PrimaryKey [Text] -- ^ PRIMARY KEY (col1, col2, ...)
-  | Unique [Text] -- ^ UNIQUE (col1, col2, ...)
+  | Unique Text [Text] -- ^ CONSTRAINT name UNIQUE (col1, col2, ...)
   deriving (Show,Data)
 
 -- | Get the columns defined in the given TableConstraint.
 getConstraintColumns :: TableConstraint -> [Text]
 getConstraintColumns = \case
   PrimaryKey cols -> cols
-  Unique cols -> cols
+  Unique _ cols -> cols
 
 {- Helpers -}
 
