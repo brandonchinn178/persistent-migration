@@ -1,1 +1,12 @@
-[Person {personName = "Alice", personHometown = CityKey {unCityKey = SqlBackendKey {unSqlBackendKey = 1}}, personGender = Just "Female", personColorblind = False},Person {personName = "Bob", personHometown = CityKey {unCityKey = SqlBackendKey {unSqlBackendKey = 1}}, personGender = Just "Male", personColorblind = True},Person {personName = "Courtney", personHometown = CityKey {unCityKey = SqlBackendKey {unSqlBackendKey = 1}}, personGender = Nothing, personColorblind = False}]
+- hometown: 1
+  gender: Female
+  name: Alice
+  colorblind: false
+- hometown: 1
+  gender: Male
+  name: Bob
+  colorblind: true
+- hometown: 1
+  gender: null
+  name: Courtney
+  colorblind: false

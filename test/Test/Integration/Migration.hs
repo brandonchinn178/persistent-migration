@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -15,10 +16,11 @@ module Test.Integration.Migration (testIntegration) where
 
 import Control.Monad (unless)
 import Control.Monad.Reader (runReaderT)
+import Data.ByteString.Lazy (ByteString, fromStrict)
 import Data.Maybe (mapMaybe)
 import Data.Pool (Pool, withResource)
 import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.Yaml (array, encode, object, (.=))
 import Database.Persist.Migration
 import Database.Persist.Migration.Sql (interpolate)
 import Database.Persist (Entity(..), insert, insertMany_, selectList)
@@ -112,10 +114,6 @@ testIntegration label backend getPool = testGroup label
 
 {- Helpers -}
 
--- | Run a goldens test for an IO action returning a Showable value.
-goldenShow :: Show a => String -> String -> IO a -> TestTree
-goldenShow label name = goldenVsString "integration" label name . fmap (Text.pack . show)
-
 -- | Run the given migration.
 runMigration' :: MigrateBackend -> Pool SqlBackend -> Migration -> IO ()
 runMigration' backend pool = runSql pool . runMigration backend defaultSettings
@@ -138,7 +136,7 @@ testMigration
   -> Int
   -> [SqlPersistT IO ()]
   -> TestTree
-testMigration label backend getPool n populateDb = goldenShow label name $ do
+testMigration label backend getPool n populateDb = goldenVsString "integration" label name $ do
   pool <- getPool
   let doMigration = runMigration' backend pool
 
@@ -148,7 +146,7 @@ testMigration label backend getPool n populateDb = goldenShow label name $ do
 
   -- run migrations and check inserting current models works
   doMigration manualMigration
-  res :: [Person] <- runSql pool $ do
+  res <- runSql pool $ do
     checkMigration autoMigration
     berkeley <- insert $ City "Berkeley" "CA"
     insertMany_
@@ -162,7 +160,18 @@ testMigration label backend getPool n populateDb = goldenShow label name $ do
   runSql pool $ rawExecute "DROP TABLE person" []
   runSql pool $ rawExecute "DROP TABLE city" []
 
-  return res
+  return $ showPersons res
   where
     setupMigration = take n manualMigration
     name = "Migrate from " ++ show n
+
+-- | Display a Person as a YAML object.
+showPersons :: [Person] -> ByteString
+showPersons = fromStrict . encode . array . map showPerson
+  where
+    showPerson Person{..} = object
+      [ "name" .= personName
+      , "hometown" .= personHometown
+      , "gender" .= personGender
+      , "colorblind" .= personColorblind
+      ]

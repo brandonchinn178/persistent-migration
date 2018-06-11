@@ -9,7 +9,7 @@ import Database.Persist.Migration
 import Database.Persist.Sql (SqlType(..))
 import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Unit.Backends (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
-import Test.Utils.Goldens (goldenVsString)
+import Test.Utils.Goldens (goldenVsText)
 
 -- | Build a test suite for the given MigrateBackend.
 testMigrations :: String -> MigrateBackend -> TestTree
@@ -73,11 +73,11 @@ testMigrations label backend = testGroup label
 
 -- | Run a goldens test for a pure Showable value.
 goldenShow :: Show a => String -> String -> a -> TestTree
-goldenShow label name = goldenVsString "unit" label name . return . Text.pack . show
+goldenShow label name = goldenVsText "unit" label name . return . Text.pack . show
 
 -- | Run a goldens test for a migration.
 goldenMigration :: String -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
-goldenMigration label backend name testBackend migration = goldenVsString "unit" label name $ do
+goldenMigration label backend name testBackend migration = goldenVsText "unit" label name $ do
   setDatabase testBackend
   Text.unlines <$> getMigration' migration
   where

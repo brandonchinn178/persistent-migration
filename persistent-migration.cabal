@@ -44,6 +44,7 @@ test-suite persistent-migration-test
                       Test.Unit.Backends
                       Test.Utils.Goldens
   build-depends: base
+               , bytestring
                , conduit
                , containers
                , mtl
@@ -77,6 +78,7 @@ test-suite persistent-migration-integration
                , tasty-golden
                , temporary
                , text
+               , yaml
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances
