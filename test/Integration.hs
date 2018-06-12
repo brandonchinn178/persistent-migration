@@ -8,14 +8,7 @@ import Database.Persist.Sql (SqlBackend)
 import System.Exit (ExitCode(..), exitWith)
 import System.IO (hPutStrLn, stderr)
 import System.IO.Temp (withTempDirectory)
-import System.Process
-    ( CreateProcess(..)
-    , StdStream(..)
-    , createProcess
-    , proc
-    , readProcessWithExitCode
-    , terminateProcess
-    )
+import System.Process (readProcessWithExitCode)
 import Test.Integration.Migration (testIntegration)
 import Test.Tasty
 
@@ -27,22 +20,26 @@ main = withTempDirectory "/tmp" "persistent-migration-integration" $ \dir ->
 
 -- | Run a function with the PostgreSQL backend.
 withPostgres :: FilePath -> (IO (Pool SqlBackend) -> TestTree) -> TestTree
-withPostgres dir f = withResource startPostgres stopPostgres $ f . fmap snd
+withPostgres dir = withResource startPostgres stopPostgres
   where
-    dir' = dir ++ "/postgresql"
+    dir' = dir ++ "/postgresql/"
     -- running postgres
     startPostgres = do
       -- initialize local postgres server
-      callProcess' "initdb" ["-D", dir']
-      ph <- spawnProcess' "postgres" ["-h", "", "-k", dir', "-D", dir']
+      callProcess' "pg_ctl" ["-D", dir', "init"]
+      callProcess' "pg_ctl"
+        [ "-D", dir'
+        , "-l", dir' ++ "postgres.log"
+        , "-o", "-h '' -k '" ++ dir' ++ "'"
+        , "start"
+        ]
       threadDelay 1000000
       callProcess' "createdb" ["-h", dir', "test_db"]
       -- create a connection Pool
       let connString = ByteString.pack $ "postgresql:///test_db?host=" ++ dir'
-      pool <- runNoLoggingT $ createPostgresqlPool connString 4
-      return (ph, pool)
-    stopPostgres (ph, pool) = do
-      terminateProcess ph
+      runNoLoggingT $ createPostgresqlPool connString 4
+    stopPostgres pool = do
+      callProcess' "pg_ctl" ["-D", dir', "stop"]
       destroyAllResources pool
     -- calling processes
     callProcess' cmd args = do
@@ -53,9 +50,3 @@ withPostgres dir f = withResource startPostgres stopPostgres $ f . fmap snd
           hPutStrLn stderr out
           hPutStrLn stderr err
           exitWith code
-    spawnProcess' cmd args = do
-      (_, _, _, ph) <- createProcess (proc cmd args)
-        { std_out = NoStream
-        , std_err = NoStream
-        }
-      return ph
