@@ -15,7 +15,7 @@
 module Test.Integration.Migration (testIntegration) where
 
 import Control.Exception (finally)
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString.Lazy (ByteString, fromStrict)
 import Data.Maybe (mapMaybe)
@@ -126,6 +126,7 @@ testIntegration label backend getPool = testGroup label
       , insertPerson "Foster" [("sex", "NULL")]
       ]
   , testMigration' "Migrate with default colorblind" 7 [insertPerson "David" []]
+  , testMigration' "Migrations are idempotent" 8 [insertPerson "David" [("colorblind", "TRUE")]]
   ]
   where
     testMigration' = testMigration label backend getPool
@@ -174,7 +175,9 @@ testMigration label backend getPool name n populateDb = goldenVsString "integrat
       -- populateDb scripts can use hometown=1
       runSql pool insertCity
     needsMore <- runSql pool $ hasMigration autoMigration
-    unless needsMore $ fail "No more migrations detected"
+    if n >= length manualMigration
+      then when needsMore $ fail "More migrations are detected"
+      else unless needsMore $ fail "No more migrations detected"
     mapM_ (runSql pool) populateDb
 
     -- run migrations and check inserting current models works
