@@ -51,7 +51,12 @@ aliases:
   - &run-integration-tests
     run:
       name: Run integration tests
-      command: stack test :persistent-migration-integration
+      command: |
+        # integration tests need to run as non-root
+        useradd test
+        cp $(stack path --dist-dir)/build/persistent-migration-integration/persistent-migration-integration /home/test
+
+        su test -c 'cd /home/test; ./persistent-migration-integration'
   - &run-hlint
     run:
       name: Run HLint
