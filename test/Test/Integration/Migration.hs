@@ -38,7 +38,7 @@ import Database.Persist.Sql
 import Database.Persist.TH
     (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import Test.Tasty (TestTree, testGroup)
-import Test.Utils.Goldens (goldenVsString)
+import Test.Utils.Goldens (TestGoldenString, goldenVsString)
 
 {- Schema and migration -}
 
@@ -117,6 +117,14 @@ manualMigration =
 -- | Build a test suite running integration tests for the given MigrateBackend.
 testIntegration :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testIntegration label backend getPool = testGroup label
+  [ testMigrations goldenVsString' backend getPool
+  ]
+  where
+    goldenVsString' = goldenVsString "integration" label
+
+-- | A test suite for running migrations.
+testMigrations :: TestGoldenString -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
+testMigrations testGolden backend getPool = testGroup "migrations"
   [ testMigration' "Migrate from empty" 0 []
   , testMigration' "Migrate after CREATE city" 1 []
   , testMigration' "Migrate with v1 person" 2 [insertPerson "David" []]
@@ -129,7 +137,7 @@ testIntegration label backend getPool = testGroup label
   , testMigration' "Migrations are idempotent" 8 [insertPerson "David" [("colorblind", "TRUE")]]
   ]
   where
-    testMigration' = testMigration label backend getPool
+    testMigration' = testMigration testGolden backend getPool
     insertPerson name extra =
       let cols = ["name", "hometown"] ++ map fst extra
           vals = ["'" <> name <> "'", "1"] ++ map snd extra
@@ -155,14 +163,14 @@ runSql pool = withResource pool . runReaderT
 --    * output "SELECT * FROM person" to goldens file
 --    * clean up database
 testMigration
-  :: String
+  :: TestGoldenString
   -> MigrateBackend
   -> IO (Pool SqlBackend)
   -> String
   -> Int
   -> [SqlPersistT IO ()]
   -> TestTree
-testMigration label backend getPool name n populateDb = goldenVsString "integration" label name $ do
+testMigration testGolden backend getPool name n populateDb = testGolden name $ do
   pool <- getPool
   let doMigration = runMigration' backend pool
       city = CityKey 1
