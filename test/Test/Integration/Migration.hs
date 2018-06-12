@@ -19,12 +19,13 @@ import Control.Monad (unless)
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString.Lazy (ByteString, fromStrict)
 import Data.Maybe (mapMaybe)
+import Data.Monoid ((<>))
 import Data.Pool (Pool, withResource)
 import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
-import Database.Persist.Migration.Sql (interpolate)
+import Database.Persist.Migration.Sql (interpolate, uncommas)
 import Database.Persist.Sql
     ( PersistValue(..)
     , Single(..)
@@ -118,10 +119,21 @@ testIntegration :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testIntegration label backend getPool = testGroup label
   [ testMigration' 0 []
   , testMigration' 1 []
-  , testMigration' 2 [rawExecute "INSERT INTO person(name,hometown) VALUES ('David',1)" []]
+  , testMigration' 2 [insertPerson "David" []]
+  , testMigration' 3
+      [ insertPerson "David" [("sex", "0")]
+      , insertPerson "Elizabeth" [("sex", "1")]
+      , insertPerson "Foster" [("sex", "NULL")]
+      ]
   ]
   where
     testMigration' = testMigration label backend getPool
+    insertPerson name extra =
+      let cols = ["name", "hometown"] ++ map fst extra
+          vals = ["'" <> name <> "'", "1"] ++ map snd extra
+      in rawExecute
+          ("INSERT INTO person(" <> uncommas cols <> ") VALUES (" <> uncommas vals <> ")")
+          []
 
 {- Helpers -}
 
