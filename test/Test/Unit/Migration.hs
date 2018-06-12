@@ -1,20 +1,15 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Persist.MigrationTest (testMigrations) where
+module Test.Unit.Migration (testMigrations) where
 
 import Control.Monad.Reader (runReaderT)
-import Data.Char (toLower)
-import Data.Text (Text)
 import qualified Data.Text as Text
-import Data.Text.Lazy (fromStrict)
-import qualified Data.Text.Lazy.Encoding as Text
 import Database.Persist.Migration
 import Database.Persist.Sql (SqlType(..))
-import Database.Persist.TestBackends
-    (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
 import Test.Tasty (TestName, TestTree, testGroup)
-import Test.Tasty.Golden (goldenVsString)
+import Test.Unit.Backends
+    (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
+import Test.Utils.Goldens (goldenVsText)
 
 -- | Build a test suite for the given MigrateBackend.
 testMigrations :: String -> MigrateBackend -> TestTree
@@ -27,12 +22,12 @@ testMigrations label backend = testGroup label
                 [ Column "id" SqlInt32 []
                 , Column "name" SqlString [NotNull]
                 , Column "age" SqlInt32 [NotNull]
-                , Column "alive" SqlBool [NotNull, Default "TRUE"]
+                , Column "alive" SqlBool [NotNull]
                 , Column "hometown" SqlInt64 [References ("cities", "id")]
                 ]
             , ctConstraints =
                 [ PrimaryKey ["id"]
-                , Unique ["name"]
+                , Unique "unique_name" ["name"]
                 ]
             }
       , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
@@ -66,7 +61,7 @@ testMigrations label backend = testGroup label
   , goldenShow' "Constraint references non-existent column" $ validateOperation $
       CreateTable "person" [] [PrimaryKey ["id"]]
   , goldenShow' "Duplicate ColumnProps in AddColumn" $ validateOperation $
-      AddColumn "person" (Column "age" SqlInt32 [Default "0", Default "1"]) Nothing
+      AddColumn "person" (Column "age" SqlInt32 [NotNull, NotNull]) Nothing
   , goldenShow' "Non-null AddColumn without default" $ validateOperation $
       AddColumn "person" (Column "age" SqlInt32 [NotNull]) Nothing
   ]
@@ -76,23 +71,13 @@ testMigrations label backend = testGroup label
 
 {- Helpers -}
 
--- | Run a goldens test where the goldens file is generated from the name.
-goldenVsString' :: String -> String -> IO Text -> TestTree
-goldenVsString' label name action = goldenVsString name goldenFile $ toByteString <$> action
-  where
-    goldenFile = "test/goldens/" ++ label ++ "/" ++ map slugify name ++ ".txt"
-    slugify = \case
-      ' ' -> '-'
-      x -> toLower x
-    toByteString = Text.encodeUtf8 . fromStrict
-
 -- | Run a goldens test for a pure Showable value.
 goldenShow :: Show a => String -> String -> a -> TestTree
-goldenShow label name = goldenVsString' label name . return . Text.pack . show
+goldenShow label name = goldenVsText "unit" label name . return . Text.pack . show
 
 -- | Run a goldens test for a migration.
 goldenMigration :: String -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
-goldenMigration label backend name testBackend migration = goldenVsString' label name $ do
+goldenMigration label backend name testBackend migration = goldenVsText "unit" label name $ do
   setDatabase testBackend
   Text.unlines <$> getMigration' migration
   where

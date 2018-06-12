@@ -1,1 +1,0 @@
-Left "Duplicate column properties detected: Column {colName = \"age\", colType = SqlInt32, colProps = [Default \"0\",Default \"1\"]}"

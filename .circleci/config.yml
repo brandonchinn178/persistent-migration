@@ -8,7 +8,7 @@ aliases:
     working_directory: /root/src
 
   # system dependencies
-  - &install-deps
+  - &install-system-deps
     run:
       name: Install system dependencies
       command: scripts/install-system-deps.sh
@@ -32,7 +32,7 @@ aliases:
         cat "${FILES[@]}" > cache-key.txt
   - &cache-key
     v2-{{ checksum "cache-key.txt" }}
-  - &build-deps
+  - &install-stack-deps
     run:
       name: Build external dependencies
       command: scripts/install-stack-deps.sh
@@ -44,10 +44,18 @@ aliases:
       command: stack build --test --no-run-tests
 
   # test steps
-  - &run-test
+  - &run-unit-tests
     run:
-      name: Run tests
-      command: stack test
+      name: Run unit tests
+      command: stack test :persistent-migration-test
+  - &run-integration-tests
+    run:
+      name: Run integration tests
+      command: |
+        # integration tests need to run as non-root
+        useradd test
+        DIR=$(stack path --dist-dir)/build/persistent-migration-integration
+        su test -c "${DIR}/persistent-migration-integration"
   - &run-hlint
     run:
       name: Run HLint
@@ -74,11 +82,11 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
-      - *install-deps
+      - *install-system-deps
       - *install-stack
       - restore_cache:
           key: *cache-key
-      - *build-deps
+      - *install-stack-deps
       - save_cache:
           key: *cache-key
           paths:
@@ -90,7 +98,7 @@ jobs:
           paths:
               - .stack-work
 
-  test:
+  unit-tests:
     <<: *docker-linux
     steps:
       - checkout
@@ -99,7 +107,19 @@ jobs:
       - *install-stack
       - restore_cache:
           key: *cache-key
-      - *run-test
+      - *run-unit-tests
+
+  integration-tests:
+    <<: *docker-linux
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - *install-system-deps
+      - *install-stack
+      - restore_cache:
+          key: *cache-key
+      - *run-integration-tests
 
   hlint:
     <<: *docker-linux
@@ -132,7 +152,10 @@ workflows:
       - build:
           requires:
             - prebuild
-      - test:
+      - unit-tests:
+          requires:
+            - build
+      - integration-tests:
           requires:
             - build
       - hlint:

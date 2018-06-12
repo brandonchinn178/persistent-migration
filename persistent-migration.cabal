@@ -20,9 +20,9 @@ library
   default-language:   Haskell2010
   exposed-modules:    Database.Persist.Migration
                       Database.Persist.Migration.Postgres
+                      Database.Persist.Migration.Sql
   other-modules:      Database.Persist.Migration.Internal
                       Database.Persist.Migration.Plan
-                      Database.Persist.Migration.Sql
   build-depends:      base >= 4.7 && < 5
                     , containers
                     , fgl
@@ -35,14 +35,16 @@ library
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances
 
-test-suite persistent-migration-goldens
+test-suite persistent-migration-test
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test
   default-language:   Haskell2010
-  main-is:            Main.hs
-  other-modules:      Database.Persist.MigrationTest
-                      Database.Persist.TestBackends
+  main-is:            Unit.hs
+  other-modules:      Test.Unit.Migration
+                      Test.Unit.Backends
+                      Test.Utils.Goldens
   build-depends: base
+               , bytestring
                , conduit
                , containers
                , mtl
@@ -51,6 +53,32 @@ test-suite persistent-migration-goldens
                , tasty
                , tasty-golden
                , text
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
+    -Wredundant-constraints -Wnoncanonical-monad-instances
+
+test-suite persistent-migration-integration
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  default-language:   Haskell2010
+  main-is:            Integration.hs
+  other-modules:      Test.Integration.Migration
+                      Test.Utils.Goldens
+  build-depends: base
+               , bytestring
+               , monad-logger
+               , mtl
+               , process
+               , persistent
+               , persistent-migration
+               , persistent-postgresql
+               , persistent-template
+               , resource-pool
+               , tasty
+               , tasty-golden
+               , temporary
+               , text
+               , yaml
   ghc-options:
     -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wcompat
     -Wredundant-constraints -Wnoncanonical-monad-instances

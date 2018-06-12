@@ -93,7 +93,7 @@ getCurrVersion backend = do
     migrationSchema = CreateTable
       { ctName = "persistent_migration"
       , ctSchema =
-          [ Column "id" SqlInt32 [NotNull]
+          [ Column "id" SqlInt32 [NotNull, AutoIncrement]
           , Column "version" SqlInt32 [NotNull]
           , Column "label" SqlString []
           , Column "timestamp" SqlDayTime [NotNull]
@@ -109,8 +109,10 @@ getCurrVersion backend = do
       _ -> error "Invalid response from the database."
 
 -- | Get the migration plan given the current state of the database.
-getMigratePlan :: Migration -> Maybe Version -> Migration
-getMigratePlan migration mVersion = getPath edges start end
+getMigratePlan :: Migration -> Maybe Version -> Either (Version, Version) Migration
+getMigratePlan migration mVersion = case getPath edges start end of
+  Just path -> Right path
+  Nothing -> Left (start, end)
   where
     edges = map (\op@Operation{opPath} -> (opPath, op)) migration
     start = fromMaybe (getFirstVersion migration) mVersion
@@ -142,7 +144,7 @@ runMigration backend settings@MigrateSettings{..} migration = do
   getMigration backend settings migration >>= rawExecute'
   now <- liftIO getCurrentTime
   let version = getLatestVersion migration
-  rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?)"
+  rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?, ?)"
     [ PersistInt64 $ fromIntegral version
     , PersistText $ Text.pack $ fromMaybe (show version) $ versionToLabel version
     , PersistUTCTime now
@@ -153,9 +155,10 @@ getMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> S
 getMigration backend _ migration = do
   either fail return $ mapM_ (\Operation{opOp} -> validateOperation opOp) migration
   currVersion <- getCurrVersion backend
-  let migratePlan = getMigratePlan migration currVersion
+  migratePlan <- either badPath return $ getMigratePlan migration currVersion
   concatMapM getMigrationText' migratePlan
   where
+    badPath (start, end) = fail $ "Could not find path: " ++ show start ++ " ~> " ++ show end
     -- Utilities
     concatMapM f = fmap concat . mapM f
     -- Operation helpers
@@ -201,14 +204,13 @@ data AddColumn = AddColumn
   { acTable   :: Text
   , acColumn  :: Column
   , acDefault :: Maybe Text
-    -- ^ The default for existing rows (may be different from the default for future rows). Required
-    -- if the column is non-nullable and doesn't have a default
+    -- ^ The default for existing rows; required if the column is non-nullable
   } deriving (Show)
 
 instance Migrateable AddColumn where
   validateOperation ac@AddColumn{..} = do
     validateColumn acColumn
-    when (isNotNullAndNoDefault acColumn && isNothing acDefault) $
+    when (NotNull `elem` colProps acColumn && isNothing acDefault) $
       Left $ "Adding a non-nullable column requires a default: " ++ show ac
 
   getMigrationText = addColumn
@@ -265,13 +267,6 @@ data Column = Column
   , colProps :: [ColumnProp]
   } deriving (Show)
 
--- | Return whether the given column is NOT NULL and doesn't have a default specified.
-isNotNullAndNoDefault :: Column -> Bool
-isNotNullAndNoDefault Column{..} = isNotNull && not hasDefault
-  where
-    isNotNull = hasColumnProp "NotNull" colProps
-    hasDefault = hasColumnProp "Default" colProps
-
 -- | Validate a Column.
 validateColumn :: Column -> Either String ()
 validateColumn col@Column{..} = when (hasDuplicateContrs colProps) $
@@ -280,33 +275,21 @@ validateColumn col@Column{..} = when (hasDuplicateContrs colProps) $
 -- | A property for a 'Column'.
 data ColumnProp
   = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
-  | Default Text -- ^ Set the default for inserted rows without a value specified for the column
   | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
-  deriving (Show,Data)
-
--- | Return whether the given 'ColumnProp' matches the given name.
-matchesColumnProp :: String -> ColumnProp -> Bool
-matchesColumnProp name = (name ==) . showData
-
--- | Return whether the given 'ColumnProp' is in the list of 'ColumnProp's.
-hasColumnProp :: String -> [ColumnProp] -> Bool
-hasColumnProp name = any (matchesColumnProp name)
-
--- | Filter the given 'ColumnProp' from the list of 'ColumnProp's.
-excludeColumnProp :: String -> [ColumnProp] -> [ColumnProp]
-excludeColumnProp name = filter (matchesColumnProp name)
+  | AutoIncrement -- ^ Makes a column auto-incrementing
+  deriving (Show,Eq,Data)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint
   = PrimaryKey [Text] -- ^ PRIMARY KEY (col1, col2, ...)
-  | Unique [Text] -- ^ UNIQUE (col1, col2, ...)
+  | Unique Text [Text] -- ^ CONSTRAINT name UNIQUE (col1, col2, ...)
   deriving (Show,Data)
 
 -- | Get the columns defined in the given TableConstraint.
 getConstraintColumns :: TableConstraint -> [Text]
 getConstraintColumns = \case
   PrimaryKey cols -> cols
-  Unique cols -> cols
+  Unique _ cols -> cols
 
 {- Helpers -}
 
