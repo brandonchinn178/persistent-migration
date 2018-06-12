@@ -1,16 +1,12 @@
-import Control.Concurrent (threadDelay)
-import Control.Monad.Logger (runNoLoggingT)
-import qualified Data.ByteString.Char8 as ByteString
-import Data.Pool (Pool, destroyAllResources)
+import Data.Pool (Pool)
+import Database.Persist.Migration (MigrateBackend)
 import qualified Database.Persist.Migration.Postgres as Postgres
-import Database.Persist.Postgresql (createPostgresqlPool)
 import Database.Persist.Sql (SqlBackend)
-import System.Exit (ExitCode(..), exitWith)
-import System.IO (hPutStrLn, stderr)
 import System.IO.Temp (withTempDirectory)
-import System.Process (readProcessWithExitCode)
-import Test.Integration.Migration (testIntegration)
+import Test.Integration.Backends (withPostgres)
+import Test.Integration.Migration (testMigrations)
 import Test.Tasty
+import Test.Utils.Goldens (goldenVsString)
 
 main :: IO ()
 main = withTempDirectory "/tmp" "persistent-migration-integration" $ \dir ->
@@ -18,35 +14,10 @@ main = withTempDirectory "/tmp" "persistent-migration-integration" $ \dir ->
     [ withPostgres dir $ testIntegration "postgresql" Postgres.backend
     ]
 
--- | Run a function with the PostgreSQL backend.
-withPostgres :: FilePath -> (IO (Pool SqlBackend) -> TestTree) -> TestTree
-withPostgres dir = withResource startPostgres stopPostgres
+-- | Build a test suite running integration tests for the given MigrateBackend.
+testIntegration :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
+testIntegration label backend getPool = testGroup label
+  [ testMigrations goldenVsString' backend getPool
+  ]
   where
-    dir' = dir ++ "/postgresql/"
-    -- running postgres
-    startPostgres = do
-      -- initialize local postgres server
-      callProcess' "pg_ctl" ["-D", dir', "init"]
-      callProcess' "pg_ctl"
-        [ "-D", dir'
-        , "-l", dir' ++ "postgres.log"
-        , "-o", "-h '' -k '" ++ dir' ++ "'"
-        , "start"
-        ]
-      threadDelay 1000000
-      callProcess' "createdb" ["-h", dir', "test_db"]
-      -- create a connection Pool
-      let connString = ByteString.pack $ "postgresql:///test_db?host=" ++ dir'
-      runNoLoggingT $ createPostgresqlPool connString 4
-    stopPostgres pool = do
-      callProcess' "pg_ctl" ["-D", dir', "stop"]
-      destroyAllResources pool
-    -- calling processes
-    callProcess' cmd args = do
-      (code, out, err) <- readProcessWithExitCode cmd args ""
-      case code of
-        ExitSuccess -> return ()
-        ExitFailure _ -> do
-          hPutStrLn stderr out
-          hPutStrLn stderr err
-          exitWith code
+    goldenVsString' = goldenVsString "integration" label

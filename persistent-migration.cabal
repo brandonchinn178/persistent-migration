@@ -62,7 +62,9 @@ test-suite persistent-migration-integration
   hs-source-dirs:     test
   default-language:   Haskell2010
   main-is:            Integration.hs
-  other-modules:      Test.Integration.Migration
+  other-modules:      Test.Integration.Backends
+                      Test.Integration.Migration
+                      Test.Integration.Utils.RunSql
                       Test.Utils.Goldens
   build-depends: base
                , bytestring

@@ -12,19 +12,32 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-module Test.Integration.Migration (testIntegration) where
+module Test.Integration.Migration (testMigrations) where
 
 import Control.Exception (finally)
 import Control.Monad (unless, when)
-import Control.Monad.Reader (runReaderT)
 import Data.ByteString.Lazy (ByteString, fromStrict)
 import Data.Maybe (mapMaybe)
 import Data.Monoid ((<>))
-import Data.Pool (Pool, withResource)
+import Data.Pool (Pool)
 import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
+    ( AddColumn(..)
+    , Column(..)
+    , ColumnProp(..)
+    , CreateTable(..)
+    , DropColumn(..)
+    , MigrateBackend
+    , Migration
+    , Operation(..)
+    , RawOperation(..)
+    , TableConstraint(..)
+    , checkMigration
+    , hasMigration
+    , (~>)
+    )
 import Database.Persist.Migration.Sql (interpolate, uncommas)
 import Database.Persist.Sql
     ( PersistValue(..)
@@ -37,8 +50,9 @@ import Database.Persist.Sql
     )
 import Database.Persist.TH
     (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
+import Test.Integration.Utils.RunSql (runMigration, runSql)
 import Test.Tasty (TestTree, testGroup)
-import Test.Utils.Goldens (TestGoldenString, goldenVsString)
+import Test.Utils.Goldens (TestGoldenString)
 
 {- Schema and migration -}
 
@@ -114,14 +128,6 @@ manualMigration =
 
 {- Test suite -}
 
--- | Build a test suite running integration tests for the given MigrateBackend.
-testIntegration :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
-testIntegration label backend getPool = testGroup label
-  [ testMigrations goldenVsString' backend getPool
-  ]
-  where
-    goldenVsString' = goldenVsString "integration" label
-
 -- | A test suite for running migrations.
 testMigrations :: TestGoldenString -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testMigrations testGolden backend getPool = testGroup "migrations"
@@ -145,16 +151,6 @@ testMigrations testGolden backend getPool = testGroup "migrations"
           ("INSERT INTO person(" <> uncommas cols <> ") VALUES (" <> uncommas vals <> ")")
           []
 
-{- Helpers -}
-
--- | Run the given migration.
-runMigration' :: MigrateBackend -> Pool SqlBackend -> Migration -> IO ()
-runMigration' backend pool = runSql pool . runMigration backend defaultSettings
-
--- | Run the given persistent query.
-runSql :: Pool SqlBackend -> SqlPersistT IO a -> IO a
-runSql pool = withResource pool . runReaderT
-
 -- | Run a test where:
 --    * the first N operations have been migrated
 --    * the given query is run to populate the database
@@ -172,14 +168,14 @@ testMigration
   -> TestTree
 testMigration testGolden backend getPool name n populateDb = testGolden name $ do
   pool <- getPool
-  let doMigration = runMigration' backend pool
+  let runMigration' = runMigration backend pool
       city = CityKey 1
       insertCity = insertKey city $ City "Berkeley" "CA"
 
   res <- (`finally` cleanup pool) $ do
     -- test setup
     unless (null setupMigration) $ do
-      doMigration setupMigration
+      runMigration' setupMigration
       -- populateDb scripts can use hometown=1
       runSql pool insertCity
     needsMore <- runSql pool $ hasMigration autoMigration
@@ -189,7 +185,7 @@ testMigration testGolden backend getPool name n populateDb = testGolden name $ d
     mapM_ (runSql pool) populateDb
 
     -- run migrations and check inserting current models works
-    doMigration manualMigration
+    runMigration' manualMigration
     runSql pool $ do
       checkMigration autoMigration
       get city >>= \case
