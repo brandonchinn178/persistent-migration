@@ -125,6 +125,7 @@ testIntegration label backend getPool = testGroup label
       , insertPerson "Elizabeth" [("sex", "1")]
       , insertPerson "Foster" [("sex", "NULL")]
       ]
+  , testMigration' "Migrate with default colorblind" 7 [insertPerson "David" []]
   ]
   where
     testMigration' = testMigration label backend getPool
