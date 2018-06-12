@@ -117,10 +117,10 @@ manualMigration =
 -- | Build a test suite running integration tests for the given MigrateBackend.
 testIntegration :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testIntegration label backend getPool = testGroup label
-  [ testMigration' 0 []
-  , testMigration' 1 []
-  , testMigration' 2 [insertPerson "David" []]
-  , testMigration' 3
+  [ testMigration' "Migrate from empty" 0 []
+  , testMigration' "Migrate after CREATE city" 1 []
+  , testMigration' "Migrate with v1 person" 2 [insertPerson "David" []]
+  , testMigration' "Migrate from sex to gender" 3
       [ insertPerson "David" [("sex", "0")]
       , insertPerson "Elizabeth" [("sex", "1")]
       , insertPerson "Foster" [("sex", "NULL")]
@@ -156,10 +156,11 @@ testMigration
   :: String
   -> MigrateBackend
   -> IO (Pool SqlBackend)
+  -> String
   -> Int
   -> [SqlPersistT IO ()]
   -> TestTree
-testMigration label backend getPool n populateDb = goldenVsString "integration" label name $ do
+testMigration label backend getPool name n populateDb = goldenVsString "integration" label name $ do
   pool <- getPool
   let doMigration = runMigration' backend pool
       city = CityKey 1
@@ -192,7 +193,6 @@ testMigration label backend getPool n populateDb = goldenVsString "integration" 
   return $ showPersons res
   where
     setupMigration = take n manualMigration
-    name = "Migrate from " ++ show n
     cleanup pool = runSql pool $ do
       rawExecute "DROP TABLE persistent_migration" []
       rawExecute "DROP TABLE person" []
