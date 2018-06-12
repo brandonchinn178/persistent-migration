@@ -159,6 +159,8 @@ testMigration label backend getPool n populateDb = goldenVsString "integration" 
       doMigration setupMigration
       -- populateDb scripts can use hometown=1
       runSql pool insertCity
+    needsMore <- runSql pool $ hasMigration autoMigration
+    unless needsMore $ fail "No more migrations detected"
     mapM_ (runSql pool) populateDb
 
     -- run migrations and check inserting current models works
