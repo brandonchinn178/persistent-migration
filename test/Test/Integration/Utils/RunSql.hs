@@ -6,7 +6,7 @@ module Test.Integration.Utils.RunSql
 import Control.Monad.Reader (runReaderT)
 import Data.Pool (Pool, withResource)
 import Database.Persist.Migration (MigrateBackend, Migration, defaultSettings)
-import qualified Database.Persist.Migration as Migration
+import qualified Database.Persist.Migration.Internal as Migration
 import Database.Persist.Sql (SqlBackend, SqlPersistT)
 
 -- | Run the given persistent query.

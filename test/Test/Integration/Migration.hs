@@ -38,7 +38,7 @@ import Database.Persist.Migration
     , hasMigration
     , (~>)
     )
-import Database.Persist.Migration.Sql (interpolate, uncommas)
+import Database.Persist.Migration.Utils.Sql (interpolate, uncommas)
 import Database.Persist.Sql
     ( PersistValue(..)
     , Single(..)
