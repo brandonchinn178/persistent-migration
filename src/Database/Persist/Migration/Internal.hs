@@ -128,11 +128,13 @@ getLatestVersion = maximum . map (snd . opPath)
 
 {- Migration plan and execution -}
 
+-- | Settings to customize migration steps.
 newtype MigrateSettings = MigrateSettings
   { versionToLabel :: Version -> Maybe String
       -- ^ A function to optionally label certain versions
   }
 
+-- | Default migration settings.
 defaultSettings :: MigrateSettings
 defaultSettings = MigrateSettings
   { versionToLabel = const Nothing
@@ -287,7 +289,7 @@ validateColumn col@Column{..} = when (hasDuplicateContrs colProps) $
 
 -- | A property for a 'Column'.
 data ColumnProp
-  = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
+  = NotNull -- ^ Makes a column non-nullable (defaults to nullable)
   | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
   | AutoIncrement -- ^ Makes a column auto-incrementing
   deriving (Show,Eq,Data)

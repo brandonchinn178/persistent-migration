@@ -8,8 +8,8 @@ Defines a migration framework for the persistent library.
 -}
 
 module Database.Persist.Migration
-  -- * Operation types
-  ( Version
+  ( -- * Operation types
+    Version
   , OperationPath
   , (~>)
   , Operation(..)
