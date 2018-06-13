@@ -22,6 +22,7 @@ module Database.Persist.Migration
   , defaultSettings
   , runMigration
   , getMigration
+  , hasMigration
   , checkMigration
   -- * Core operations
   , CreateTable(..)
@@ -42,6 +43,10 @@ import Control.Monad (unless)
 import qualified Data.Text as Text
 import Database.Persist.Migration.Internal
 import qualified Database.Persist.Sql as Persistent
+
+-- | True if the persistent library detects more migrations unaccounted for.
+hasMigration :: Persistent.Migration -> Persistent.SqlPersistT IO Bool
+hasMigration = fmap (not . null) . Persistent.showMigration
 
 -- | Fails if the persistent library detects more migrations unaccounted for.
 checkMigration :: Persistent.Migration -> Persistent.SqlPersistT IO ()

@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines helper functions for writing SQL queries.
 -}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Database.Persist.Migration.Sql
@@ -18,7 +19,8 @@ module Database.Persist.Migration.Sql
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Database.Persist (PersistValue)
+import qualified Data.Text.Encoding as Text
+import Database.Persist (PersistValue(..))
 
 -- | Split the given line by commas, ignoring commas within parentheses.
 --
@@ -48,11 +50,19 @@ quote t = "\"" <> t <> "\""
 -- | Interpolate the given values into the SQL string.
 interpolate :: Text -> [PersistValue] -> Text
 interpolate t values = if length splitted == length values + 1
-  then Text.concat . interleave splitted . map (quote' . Text.pack . show) $ values
+  then Text.concat . interleave splitted . map showValue $ values
   else error $ "Number of ?'s does not match number of values: " ++ show t
   where
     splitted = Text.splitOn "?" t
     interleave (x:xs) (y:ys) = x : y : interleave xs ys
     interleave xs [] = xs
     interleave [] ys = ys
-    quote' t' = if "\"" `Text.isPrefixOf` t' then t' else quote t'
+    showValue = \case
+      PersistText v -> "'" <> v <> "'"
+      PersistByteString v -> "'" <> Text.decodeUtf8 v <> "'"
+      PersistInt64 v -> Text.pack . show $ v
+      PersistDouble v -> Text.pack . show $ v
+      PersistRational v -> Text.pack . show $ v
+      PersistBool v -> Text.pack . show $ v
+      PersistNull -> "NULL"
+      v -> error $ "Could not interpolate value: " ++ show v
