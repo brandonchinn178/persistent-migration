@@ -15,13 +15,9 @@ import Data.List (nub, nubBy)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Database.Persist.Sql (SqlType(..))
 import Database.Persist.Migration
-  ( Column(..)
-  , ColumnProp(..)
-  , CreateTable(..)
-  , TableConstraint(..)
-  )
+    (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
+import Database.Persist.Sql (SqlType(..))
 import Test.QuickCheck
 
 -- | Generate an arbitrary CREATE TABLE query. Also generates tables necessary for foreign keys.
@@ -57,7 +53,7 @@ genCreateTable = genCreateTable' True Nothing
           max32 l = if length l > 32
             then take 32 l : max32 (drop 32 l)
             else [l]
-      uniqueConstraints <- (map mkUnique . concatMap max32) <$> group uniqueCols
+      uniqueConstraints <- map mkUnique . concatMap max32 <$> group uniqueCols
 
       let ctConstraints = PrimaryKey ["id"] : uniqueConstraints
 
