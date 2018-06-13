@@ -64,10 +64,14 @@ test-suite persistent-migration-integration
   main-is:            Integration.hs
   other-modules:      Test.Integration.Backends
                       Test.Integration.Migration
+                      Test.Integration.Property
                       Test.Integration.Utils.RunSql
                       Test.Utils.Goldens
+                      Test.Utils.QuickCheck
   build-depends: base
                , bytestring
+               , exceptions
+               , extra
                , monad-logger
                , mtl
                , process
@@ -76,8 +80,10 @@ test-suite persistent-migration-integration
                , persistent-postgresql
                , persistent-template
                , resource-pool
+               , QuickCheck
                , tasty
                , tasty-golden
+               , tasty-quickcheck
                , temporary
                , text
                , yaml
