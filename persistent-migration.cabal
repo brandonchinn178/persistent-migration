@@ -21,6 +21,7 @@ library
   exposed-modules:    Database.Persist.Migration
                       Database.Persist.Migration.Internal
                       Database.Persist.Migration.Postgres
+                      Database.Persist.Migration.Utils.Data
                       Database.Persist.Migration.Utils.Plan
                       Database.Persist.Migration.Utils.Sql
   build-depends:      base >= 4.7 && < 5

@@ -22,14 +22,14 @@ module Database.Persist.Migration.Internal where
 import Control.Monad (unless, when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
-import Data.Data (Data, showConstr, toConstr)
-import Data.Function (on)
-import Data.List (nub, nubBy)
+import Data.Data (Data)
+import Data.List (nub)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
+import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
 import Database.Persist.Migration.Utils.Plan (getPath)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
@@ -128,11 +128,13 @@ getLatestVersion = maximum . map (snd . opPath)
 
 {- Migration plan and execution -}
 
+-- | Settings to customize migration steps.
 newtype MigrateSettings = MigrateSettings
   { versionToLabel :: Version -> Maybe String
       -- ^ A function to optionally label certain versions
   }
 
+-- | Default migration settings.
 defaultSettings :: MigrateSettings
 defaultSettings = MigrateSettings
   { versionToLabel = const Nothing
@@ -193,7 +195,7 @@ data CreateTable = CreateTable
 instance Migrateable CreateTable where
   validateOperation ct@CreateTable{..} = do
     mapM_ validateColumn ctSchema
-    when (hasDuplicateContrs ctConstraints) $
+    when (hasDuplicateConstrs ctConstraints) $
       Left $ "Duplicate table constraints detected: " ++ show ct
 
     let constraintCols = concatMap getConstraintColumns ctConstraints
@@ -282,12 +284,12 @@ data Column = Column
 
 -- | Validate a Column.
 validateColumn :: Column -> Either String ()
-validateColumn col@Column{..} = when (hasDuplicateContrs colProps) $
+validateColumn col@Column{..} = when (hasDuplicateConstrs colProps) $
   Left $ "Duplicate column properties detected: " ++ show col
 
 -- | A property for a 'Column'.
 data ColumnProp
-  = NotNull -- ^ Makes a 'Column' non-nullable (defaults to nullable)
+  = NotNull -- ^ Makes a column non-nullable (defaults to nullable)
   | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
   | AutoIncrement -- ^ Makes a column auto-incrementing
   deriving (Show,Eq,Data)
@@ -303,13 +305,3 @@ getConstraintColumns :: TableConstraint -> [Text]
 getConstraintColumns = \case
   PrimaryKey cols -> cols
   Unique _ cols -> cols
-
-{- Helpers -}
-
--- | Show the name of the constructor.
-showData :: Data a => a -> String
-showData = showConstr . toConstr
-
--- | Return True if the given list has duplicate constructors.
-hasDuplicateContrs :: Data a => [a] -> Bool
-hasDuplicateContrs l = length l /= length (nubBy ((==) `on` showData) l)
