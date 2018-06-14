@@ -14,7 +14,7 @@
 
 * `stack test :persistent-migration-test`
     * Runs unit tests
-    * Frameworks: tasty-golden
+    * Frameworks: tasty-golden, tasty-quickcheck
 * `stack test :persistent-migration-integration`
     * Runs integration tests
     * Frameworks: tasty-golden, tasty-quickcheck
