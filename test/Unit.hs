@@ -10,12 +10,12 @@ unitDir = goldenDir "unit"
 
 main :: IO ()
 main = defaultMain $ testGroup "persistent-migration-goldens"
-  [ testUnit "postgresql" Postgres.backend
+  [ testBackend "postgresql" Postgres.backend
   , testValidation (unitDir "validation")
   ]
 
 -- | Build a test suite running unit tests for the given MigrateBackend.
-testUnit :: String -> MigrateBackend -> TestTree
-testUnit label backend = testGroup label
+testBackend :: String -> MigrateBackend -> TestTree
+testBackend label backend = testGroup label
   [ testMigrations (unitDir label) backend
   ]

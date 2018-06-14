@@ -15,12 +15,12 @@ integrationDir = goldenDir "integration"
 main :: IO ()
 main = withTempDirectory "/tmp" "persistent-migration-integration" $ \dir ->
   defaultMain $ testGroup "persistent-migration-integration"
-    [ withPostgres dir $ testIntegration "postgresql" Postgres.backend
+    [ withPostgres dir $ testBackend "postgresql" Postgres.backend
     ]
 
 -- | Build a test suite running integration tests for the given MigrateBackend.
-testIntegration :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
-testIntegration label backend getPool = testGroup label
+testBackend :: String -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
+testBackend label backend getPool = testGroup label
   [ testMigrations (integrationDir label) backend getPool
   , testProperties backend getPool
   ]
