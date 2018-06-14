@@ -7,7 +7,7 @@ import qualified Data.Text as Text
 import Database.Persist.Migration.Internal
 import Database.Persist.Sql (SqlType(..))
 import Test.Tasty (TestName, TestTree, testGroup)
-import Test.Unit.Backends
+import Test.Unit.Utils.Backends
     (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
 import Test.Utils.Goldens (goldenVsText)
 

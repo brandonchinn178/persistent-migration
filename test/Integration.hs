@@ -3,9 +3,9 @@ import Database.Persist.Migration (MigrateBackend)
 import qualified Database.Persist.Migration.Postgres as Postgres
 import Database.Persist.Sql (SqlBackend)
 import System.IO.Temp (withTempDirectory)
-import Test.Integration.Backends (withPostgres)
 import Test.Integration.Migration (testMigrations)
 import Test.Integration.Property (testProperties)
+import Test.Integration.Utils.Backends (withPostgres)
 import Test.Tasty
 import Test.Utils.Goldens (goldenDir)
 

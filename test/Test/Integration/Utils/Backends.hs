@@ -1,4 +1,4 @@
-module Test.Integration.Backends
+module Test.Integration.Utils.Backends
   ( withPostgres
   ) where
 
