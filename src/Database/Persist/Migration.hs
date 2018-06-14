@@ -38,16 +38,17 @@ module Database.Persist.Migration
   ) where
 
 import Control.Monad (unless)
+import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as Text
 import Database.Persist.Migration.Internal
 import qualified Database.Persist.Sql as Persistent
 
 -- | True if the persistent library detects more migrations unaccounted for.
-hasMigration :: Persistent.Migration -> Persistent.SqlPersistT IO Bool
+hasMigration :: MonadIO m => Persistent.Migration -> Persistent.SqlPersistT m Bool
 hasMigration = fmap (not . null) . Persistent.showMigration
 
 -- | Fails if the persistent library detects more migrations unaccounted for.
-checkMigration :: Persistent.Migration -> Persistent.SqlPersistT IO ()
+checkMigration :: MonadIO m => Persistent.Migration -> Persistent.SqlPersistT m ()
 checkMigration migration = do
   migrationText <- Persistent.showMigration migration
   unless (null migrationText) $ fail $
