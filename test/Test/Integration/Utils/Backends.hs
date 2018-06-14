@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Test.Integration.Utils.Backends
   ( withPostgres
   ) where
@@ -6,6 +8,8 @@ import Control.Concurrent (threadDelay)
 import Control.Monad.Logger (runNoLoggingT)
 import qualified Data.ByteString.Char8 as ByteString
 import Data.Pool (Pool, destroyAllResources)
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 import Database.Persist.Postgresql (createPostgresqlPool)
 import Database.Persist.Sql (SqlBackend)
 import System.Exit (ExitCode(..), exitWith)
@@ -22,6 +26,11 @@ withPostgres dir = withResource startPostgres stopPostgres
     startPostgres = do
       -- initialize local postgres server
       callProcess' "pg_ctl" ["-D", dir', "init"]
+      -- modify configuration
+      let confFile = dir' ++ "postgresql.conf"
+      conf <- Text.readFile confFile
+      Text.writeFile confFile . Text.unlines . map modifyConf . Text.lines $ conf
+      -- start postgres server
       callProcess' "pg_ctl"
         [ "-D", dir'
         , "-l", dir' ++ "postgres.log"
@@ -36,7 +45,7 @@ withPostgres dir = withResource startPostgres stopPostgres
     stopPostgres pool = do
       callProcess' "pg_ctl" ["-D", dir', "stop"]
       destroyAllResources pool
-    -- calling processes
+    -- utilities
     callProcess' cmd args = do
       (code, out, err) <- readProcessWithExitCode cmd args ""
       case code of
@@ -45,3 +54,6 @@ withPostgres dir = withResource startPostgres stopPostgres
           hPutStrLn stderr out
           hPutStrLn stderr err
           exitWith code
+    modifyConf line
+      | "#client_min_messages" `Text.isPrefixOf` line = "client_min_messages = warning"
+      | otherwise = line
