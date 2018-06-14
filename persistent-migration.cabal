@@ -1,5 +1,5 @@
 name:                persistent-migration
-version:             0.0.1
+version:             0.0.2
 license:             BSD3
 license-file:        LICENSE.md
 author:              Brandon Chinn <brandonchinn178@gmail.com>
@@ -37,10 +37,9 @@ library
                     , text
                     , time
                     , unordered-containers
+  ghc-options: -Wall
   if flag(dev)
-    ghc-options:      -Wall -Werror
-  else
-    ghc-options:      -O2 -Wall
+    ghc-options:      -Werror
   if flag(dev) && impl(ghc >= 8.0)
     ghc-options:      -Wcompat
                       -Wincomplete-record-updates
@@ -71,10 +70,9 @@ test-suite persistent-migration-test
                , tasty-golden
                , tasty-quickcheck
                , text
+  ghc-options: -Wall
   if flag(dev)
-    ghc-options:      -Wall -Werror
-  else
-    ghc-options:      -O2 -Wall
+    ghc-options:      -Werror
   if flag(dev) && impl(ghc >= 8.0)
     ghc-options:      -Wcompat
                       -Wincomplete-record-updates
@@ -111,10 +109,9 @@ test-suite persistent-migration-integration
                , temporary
                , text
                , yaml
+  ghc-options: -Wall
   if flag(dev)
-    ghc-options:      -Wall -Werror
-  else
-    ghc-options:      -O2 -Wall
+    ghc-options:      -Werror
   if flag(dev) && impl(ghc >= 8.0)
     ghc-options:      -Wcompat
                       -Wincomplete-record-updates
