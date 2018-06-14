@@ -13,6 +13,7 @@ import Control.Monad.Extra (concatMapM)
 import Data.Function (on)
 import Data.List (nub, nubBy)
 import Data.Maybe (mapMaybe)
+import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration
@@ -48,7 +49,10 @@ genCreateTable = genCreateTable' True Nothing
 
       -- all of the columns that will be unique
       uniqueCols <- sublistOf $ map colName cols
-      let mkUnique names = Unique (Text.take 63 $ Text.intercalate "_" names) names
+      let mkUnique names =
+            -- constraint name can be max 63 characters
+            let constraintName = "unique_" <> Text.take 56 (Text.intercalate "_" names)
+            in Unique constraintName names
           -- unique constraints should not have more than 32 columns
           max32 l = if length l > 32
             then take 32 l : max32 (drop 32 l)
