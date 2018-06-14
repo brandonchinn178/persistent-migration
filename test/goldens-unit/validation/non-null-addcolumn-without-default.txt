@@ -1,1 +1,0 @@
-Left "Adding a non-nullable column requires a default: AddColumn {acTable = \"person\", acColumn = Column {colName = \"age\", colType = SqlInt32, colProps = [NotNull]}, acDefault = Nothing}"
