@@ -41,7 +41,7 @@ aliases:
   - &run-build
     run:
       name: Build package
-      command: stack build --test --no-run-tests
+      command: stack build --flag persistent-migration:dev --test --no-run-tests
 
   # test steps
   - &run-unit-tests
