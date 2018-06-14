@@ -48,9 +48,8 @@ testProperties backend getPool = testGroup "properties"
 -- | Get the CreateTable operations that are necessary for the foreign keys in the
 -- given CreateTable operation.
 getForeignKeyTables :: CreateTable -> Gen [CreateTable]
-getForeignKeyTables ct = do
-  tables <- vectorOf (length neededTables) arbitrary
-  return . map modifyTable . zip neededTables $ tables
+getForeignKeyTables ct =
+  zipWith modifyTable neededTables <$> vectorOf (length neededTables) arbitrary
   where
     neededTables = nub $ concatMap (mapMaybe getReferenceTable . colProps) $ ctSchema ct
     getReferenceTable = \case
@@ -60,7 +59,7 @@ getForeignKeyTables ct = do
       References _ -> True
       _ -> False
     noFKs = filter (not . isReference) . colProps
-    modifyTable (name, ct') = ct'
+    modifyTable name ct' = ct'
       { ctName = name
       , ctSchema = map (\col -> col{colProps = noFKs col}) $ ctSchema ct'
       }
