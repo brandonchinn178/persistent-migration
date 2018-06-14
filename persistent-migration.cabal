@@ -42,6 +42,7 @@ test-suite persistent-migration-test
   main-is:            Unit.hs
   other-modules:      Test.Unit.Migration
                       Test.Unit.Backends
+                      Test.Unit.Validation
                       Test.Utils.Goldens
   build-depends: base
                , bytestring

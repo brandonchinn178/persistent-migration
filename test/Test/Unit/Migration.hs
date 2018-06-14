@@ -52,24 +52,9 @@ testMigrations dir backend = testGroup "migrations"
       , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
       , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
       ]
-  , testOperation "Duplicate ColumnProps in CreateTable" $
-      CreateTable "person" [Column "age" SqlInt32 [NotNull, NotNull]] []
-  , testOperation "Duplicate Constraints in CreateTable" $
-      CreateTable "person"
-        [Column "id1" SqlInt32 [], Column "id2" SqlInt32 []]
-        [PrimaryKey ["id1"], PrimaryKey ["id2"]]
-  , testOperation "Constraint references non-existent column" $
-      CreateTable "person" [] [PrimaryKey ["id"]]
-  , testOperation "Duplicate ColumnProps in AddColumn" $
-      AddColumn "person" (Column "age" SqlInt32 [NotNull, NotNull]) Nothing
-  , testOperation "Non-null AddColumn without default" $
-      AddColumn "person" (Column "age" SqlInt32 [NotNull]) Nothing
   ]
   where
     goldenMigration' = goldenMigration dir backend
-    goldenVsShow' :: Show a => String -> a -> TestTree
-    goldenVsShow' name = goldenVsShow dir name . pure
-    testOperation name = goldenVsShow' name . validateOperation
 
 {- Helpers -}
 
