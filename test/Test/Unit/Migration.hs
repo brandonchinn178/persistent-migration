@@ -4,16 +4,16 @@ module Test.Unit.Migration (testMigrations) where
 
 import Control.Monad.Reader (runReaderT)
 import qualified Data.Text as Text
-import Database.Persist.Migration
+import Database.Persist.Migration.Internal
 import Database.Persist.Sql (SqlType(..))
 import Test.Tasty (TestName, TestTree, testGroup)
-import Test.Unit.Backends
+import Test.Unit.Utils.Backends
     (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
-import Test.Utils.Goldens (TestGoldenText, goldenVsText)
+import Test.Utils.Goldens (goldenVsText)
 
 -- | Build a test suite for the given MigrateBackend.
-testMigrations :: String -> MigrateBackend -> TestTree
-testMigrations label backend = testGroup label
+testMigrations :: FilePath -> MigrateBackend -> TestTree
+testMigrations dir backend = testGroup "migrations"
   [ goldenMigration' "Basic migration" defaultDatabase
       [ Operation (0 ~> 1) $
           CreateTable
@@ -52,34 +52,16 @@ testMigrations label backend = testGroup label
       , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
       , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
       ]
-  , goldenShow' "Duplicate ColumnProps in CreateTable" $ validateOperation $
-      CreateTable "person" [Column "age" SqlInt32 [NotNull, NotNull]] []
-  , goldenShow' "Duplicate Constraints in CreateTable" $ validateOperation $
-      CreateTable "person"
-        [Column "id1" SqlInt32 [], Column "id2" SqlInt32 []]
-        [PrimaryKey ["id1"], PrimaryKey ["id2"]]
-  , goldenShow' "Constraint references non-existent column" $ validateOperation $
-      CreateTable "person" [] [PrimaryKey ["id"]]
-  , goldenShow' "Duplicate ColumnProps in AddColumn" $ validateOperation $
-      AddColumn "person" (Column "age" SqlInt32 [NotNull, NotNull]) Nothing
-  , goldenShow' "Non-null AddColumn without default" $ validateOperation $
-      AddColumn "person" (Column "age" SqlInt32 [NotNull]) Nothing
   ]
   where
-    goldenMigration' = goldenMigration goldenVsText' backend
-    goldenShow' = goldenShow goldenVsText'
-    goldenVsText' = goldenVsText "unit" label
+    goldenMigration' = goldenMigration dir backend
 
 {- Helpers -}
 
--- | Run a goldens test for a pure Showable value.
-goldenShow :: Show a => TestGoldenText -> String -> a -> TestTree
-goldenShow testGolden name = testGolden name . return . Text.pack . show
-
 -- | Run a goldens test for a migration.
 goldenMigration
-  :: TestGoldenText -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
-goldenMigration testGolden backend name testBackend migration = testGolden name $ do
+  :: FilePath -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
+goldenMigration dir backend name testBackend migration = goldenVsText dir name $ do
   setDatabase testBackend
   Text.unlines <$> getMigration' migration
   where

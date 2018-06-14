@@ -38,7 +38,7 @@ import Database.Persist.Migration
     , hasMigration
     , (~>)
     )
-import Database.Persist.Migration.Sql (interpolate, uncommas)
+import Database.Persist.Migration.Utils.Sql (interpolate, uncommas)
 import Database.Persist.Sql
     ( PersistValue(..)
     , Single(..)
@@ -52,7 +52,7 @@ import Database.Persist.TH
     (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import Test.Integration.Utils.RunSql (runMigration, runSql)
 import Test.Tasty (TestTree, testGroup)
-import Test.Utils.Goldens (TestGoldenString)
+import Test.Utils.Goldens (goldenVsString)
 
 {- Schema and migration -}
 
@@ -129,8 +129,8 @@ manualMigration =
 {- Test suite -}
 
 -- | A test suite for running migrations.
-testMigrations :: TestGoldenString -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
-testMigrations testGolden backend getPool = testGroup "migrations"
+testMigrations :: FilePath -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
+testMigrations dir backend getPool = testGroup "migrations"
   [ testMigration' "Migrate from empty" 0 []
   , testMigration' "Migrate after CREATE city" 1 []
   , testMigration' "Migrate with v1 person" 2 [insertPerson "David" []]
@@ -143,7 +143,7 @@ testMigrations testGolden backend getPool = testGroup "migrations"
   , testMigration' "Migrations are idempotent" 8 [insertPerson "David" [("colorblind", "TRUE")]]
   ]
   where
-    testMigration' = testMigration testGolden backend getPool
+    testMigration' = testMigration dir backend getPool
     insertPerson name extra =
       let cols = ["name", "hometown"] ++ map fst extra
           vals = ["'" <> name <> "'", "1"] ++ map snd extra
@@ -159,14 +159,14 @@ testMigrations testGolden backend getPool = testGroup "migrations"
 --    * output "SELECT * FROM person" to goldens file
 --    * clean up database
 testMigration
-  :: TestGoldenString
+  :: FilePath
   -> MigrateBackend
   -> IO (Pool SqlBackend)
   -> String
   -> Int
   -> [SqlPersistT IO ()]
   -> TestTree
-testMigration testGolden backend getPool name n populateDb = testGolden name $ do
+testMigration dir backend getPool name n populateDb = goldenVsString dir name $ do
   pool <- getPool
   let runMigration' = runMigration backend pool
       city = CityKey 1

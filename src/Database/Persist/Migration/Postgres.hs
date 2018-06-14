@@ -33,8 +33,8 @@ import Database.Persist.Migration
     , Migration
     , TableConstraint(..)
     )
-import qualified Database.Persist.Migration as Migration
-import Database.Persist.Migration.Sql (quote, uncommas)
+import qualified Database.Persist.Migration.Internal as Migration
+import Database.Persist.Migration.Utils.Sql (quote, uncommas)
 import Database.Persist.Sql (SqlPersistT, SqlType(..))
 
 -- | Run a migration with the Postgres backend.
