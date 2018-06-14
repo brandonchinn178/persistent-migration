@@ -1,1 +1,0 @@
-Left "Table constraint references non-existent column: CreateTable {ctName = \"person\", ctSchema = [], ctConstraints = [PrimaryKey [\"id\"]]}"
