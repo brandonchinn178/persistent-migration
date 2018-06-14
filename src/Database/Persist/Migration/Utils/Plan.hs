@@ -1,5 +1,5 @@
 {-|
-Module      :  Database.Persist.Migration.Plan
+Module      :  Database.Persist.Migration.Utils.Plan
 Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
@@ -8,7 +8,7 @@ Define functions useful for compiling a plan of migration.
 -}
 {-# LANGUAGE TupleSections #-}
 
-module Database.Persist.Migration.Plan
+module Database.Persist.Migration.Utils.Plan
   ( getPath
   ) where
 

@@ -19,18 +19,18 @@ Defines a migration framework for the persistent library.
 
 module Database.Persist.Migration.Internal where
 
-import Control.Monad (when)
+import Control.Monad (unless, when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
 import Data.Data (Data, showConstr, toConstr)
 import Data.Function (on)
-import Data.List (nubBy)
+import Data.List (nub, nubBy)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
-import Database.Persist.Migration.Plan (getPath)
+import Database.Persist.Migration.Utils.Plan (getPath)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
@@ -138,6 +138,18 @@ defaultSettings = MigrateSettings
   { versionToLabel = const Nothing
   }
 
+-- | Validate the given migration.
+validateMigration :: Migration -> Either String ()
+validateMigration migration = do
+  unless (allIncreasing opVersions) $
+    Left "Operation versions must be monotonically increasing"
+  when (hasDuplicates opVersions) $
+    Left "There may only be one operation per pair of versions"
+  where
+    opVersions = map opPath migration
+    allIncreasing = all (uncurry (<))
+    hasDuplicates l = length (nub l) < length l
+
 -- | Run the given migration. After successful completion, saves the migration to the database.
 runMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m ()
 runMigration backend settings@MigrateSettings{..} migration = do
@@ -153,6 +165,7 @@ runMigration backend settings@MigrateSettings{..} migration = do
 -- | Get the SQL queries for the given migration.
 getMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m [Text]
 getMigration backend _ migration = do
+  either fail return $ validateMigration migration
   either fail return $ mapM_ (\Operation{opOp} -> validateOperation opOp) migration
   currVersion <- getCurrVersion backend
   migratePlan <- either badPath return $ getMigratePlan migration currVersion

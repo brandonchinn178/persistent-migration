@@ -20,8 +20,6 @@ module Database.Persist.Migration
   -- * Migration functions
   , MigrateSettings(..)
   , defaultSettings
-  , runMigration
-  , getMigration
   , hasMigration
   , checkMigration
   -- * Core operations

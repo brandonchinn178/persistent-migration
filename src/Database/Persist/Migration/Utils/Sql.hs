@@ -1,5 +1,5 @@
 {-|
-Module      :  Database.Persist.Migration.Sql
+Module      :  Database.Persist.Migration.Utils.Sql
 Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
@@ -9,7 +9,7 @@ Defines helper functions for writing SQL queries.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Persist.Migration.Sql
+module Database.Persist.Migration.Utils.Sql
   ( commas
   , uncommas
   , quote
