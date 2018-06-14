@@ -73,7 +73,6 @@ test-suite persistent-migration-integration
   build-depends: base
                , bytestring
                , exceptions
-               , extra
                , monad-logger
                , mtl
                , process
