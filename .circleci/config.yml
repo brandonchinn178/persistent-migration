@@ -47,7 +47,9 @@ aliases:
   - &run-unit-tests
     run:
       name: Run unit tests
-      command: stack test :persistent-migration-test
+      command: |
+        DIR=$(stack path --dist-dir)/build/persistent-migration-test
+        ${DIR}/persistent-migration-test
   - &run-integration-tests
     run:
       name: Run integration tests
