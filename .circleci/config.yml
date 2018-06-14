@@ -41,13 +41,15 @@ aliases:
   - &run-build
     run:
       name: Build package
-      command: stack build --test --no-run-tests
+      command: stack build --flag persistent-migration:dev --test --no-run-tests
 
   # test steps
   - &run-unit-tests
     run:
       name: Run unit tests
-      command: stack test :persistent-migration-test
+      command: |
+        DIR=$(stack path --dist-dir)/build/persistent-migration-test
+        ${DIR}/persistent-migration-test
   - &run-integration-tests
     run:
       name: Run integration tests
