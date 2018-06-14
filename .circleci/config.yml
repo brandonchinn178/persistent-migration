@@ -164,3 +164,29 @@ workflows:
       - stylish-haskell:
           requires:
             - build
+
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 8 * * *"  # midnight PST
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - prebuild
+      - build:
+          requires:
+            - prebuild
+      - unit-tests:
+          requires:
+            - build
+      - integration-tests:
+          requires:
+            - build
+      - hlint:
+          requires:
+            - build
+      - stylish-haskell:
+          requires:
+            - build
