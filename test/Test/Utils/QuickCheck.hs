@@ -58,7 +58,7 @@ instance Arbitrary CreateTable where
 -- Also given the set of table names that can be referenced by foreign keys.
 genColumn :: [Identifier] -> Gen Column
 genColumn tableNames = do
-  colName <- fmap unIdent arbitrary `suchThat` (/= "id")
+  colName <- fmap unIdent arbitrary
 
   references <- if null tableNames
     then return []
@@ -91,8 +91,12 @@ instance Arbitrary Identifier where
   arbitrary = do
     first <- elements underletter
     rest <- listOf $ elements $ underletter ++ ['0'..'9']
-    -- identifiers max 63 characters long
-    return . Identifier . Text.pack . take 63 $ first : rest
+    let ident = first : rest
+    if ident == "id"
+      then arbitrary
+      else
+        -- identifiers max 63 characters long
+        return . Identifier . Text.pack . take 63 $ first : rest
     where
       underletter = '_':['a'..'z']
 
