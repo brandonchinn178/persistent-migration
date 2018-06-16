@@ -1,3 +1,7 @@
+## Untagged
+
+* Remove prefixes from operations
+
 ## persistent-migration 0.0.2
 
 * Generalize `hasMigration` and `checkMigration` to `MonadIO`

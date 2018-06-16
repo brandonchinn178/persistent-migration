@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -29,7 +30,7 @@ testProperties backend getPool = testGroup "properties"
       table <- pick arbitrary
       fkTables <- pick $ getForeignKeyTables table
       let createTable = getMigrationText backend >=> mapM_ rawExecutePrint
-          dropTable = rawExecutePrint . ("DROP TABLE " <>) . quote . ctName
+          dropTable CreateTable{name} = rawExecutePrint . ("DROP TABLE " <>) . quote $ name
       runSql' $ do
         mapM_ createTable fkTables
         createTable table
@@ -51,7 +52,7 @@ getForeignKeyTables :: CreateTable -> Gen [CreateTable]
 getForeignKeyTables ct =
   zipWith modifyTable neededTables <$> vectorOf (length neededTables) arbitrary
   where
-    neededTables = nub $ concatMap (mapMaybe getReferenceTable . colProps) $ ctSchema ct
+    neededTables = nub $ concatMap (mapMaybe getReferenceTable . colProps) $ schema ct
     getReferenceTable = \case
       References (table, _) -> Just table
       _ -> Nothing
@@ -60,6 +61,6 @@ getForeignKeyTables ct =
       _ -> False
     noFKs = filter (not . isReference) . colProps
     modifyTable name ct' = ct'
-      { ctName = name
-      , ctSchema = map (\col -> col{colProps = noFKs col}) $ ctSchema ct'
+      { name = name
+      , schema = map (\col -> col{colProps = noFKs col}) $ schema ct'
       }

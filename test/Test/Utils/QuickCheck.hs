@@ -22,7 +22,7 @@ import Test.QuickCheck
 
 instance Arbitrary CreateTable where
   arbitrary = do
-    Identifier ctName <- arbitrary
+    Identifier name <- arbitrary
 
     -- get names of tables this table can have foreign keys towards
     DistinctList colNames <- arbitrary
@@ -31,11 +31,11 @@ instance Arbitrary CreateTable where
 
     -- generate schema
     DistinctList tableNames <- arbitrary
-    let tableNames' = filter (/= Identifier ctName) tableNames
+    let tableNames' = filter (/= Identifier name) tableNames
     cols <- vectorOf (length colNames') $ genColumn tableNames'
     let idCol = Column "id" SqlInt32 [NotNull, AutoIncrement]
-        cols' = map (\(name, col) -> col{colName = name}) $ zip colNames' cols
-        ctSchema = idCol : cols'
+        cols' = map (\(colName', col) -> col{colName = colName'}) $ zip colNames' cols
+        schema = idCol : cols'
 
     -- all of the columns that will be unique
     uniqueCols <- sublistOf $ map colName cols'
@@ -49,7 +49,7 @@ instance Arbitrary CreateTable where
           else [l]
     uniqueConstraints <- map mkUnique . concatMap max32 <$> group uniqueCols
 
-    let ctConstraints = PrimaryKey ["id"] : uniqueConstraints
+    let constraints = PrimaryKey ["id"] : uniqueConstraints
 
     return CreateTable{..}
 

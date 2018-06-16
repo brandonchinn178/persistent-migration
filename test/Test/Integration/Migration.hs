@@ -75,26 +75,26 @@ manualMigration =
   -- create tables
   [ Operation (0 ~> 1) $
       CreateTable
-        { ctName = "city"
-        , ctSchema =
+        { name = "city"
+        , schema =
             [ Column "id" SqlInt64 [NotNull, AutoIncrement]
             , Column "name" SqlString [NotNull]
             , Column "state" SqlString [NotNull]
             ]
-        , ctConstraints =
+        , constraints =
             [ PrimaryKey ["id"]
             , Unique "unique_city" ["state", "name"]
             ]
         }
   , Operation (1 ~> 2) $
       CreateTable
-        { ctName = "person"
-        , ctSchema =
+        { name = "person"
+        , schema =
             [ Column "id" SqlInt64 [NotNull, AutoIncrement]
             , Column "name" SqlString [NotNull]
             , Column "hometown" SqlInt64 [NotNull, References ("city", "id")]
             ]
-        , ctConstraints =
+        , constraints =
             [ PrimaryKey ["id"]
             ]
         }
