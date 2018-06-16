@@ -56,33 +56,33 @@ backend = MigrateBackend
 
 createTable' :: Bool -> CreateTable -> SqlPersistT IO [Text]
 createTable' ifNotExists CreateTable{..} = return
-  ["CREATE TABLE " <> ifNotExists' <> quote ctName <> "(" <> uncommas tableDefs <> ")"]
+  ["CREATE TABLE " <> ifNotExists' <> quote name <> "(" <> uncommas tableDefs <> ")"]
   where
     ifNotExists' = if ifNotExists then "IF NOT EXISTS " else ""
-    tableDefs = map showColumn ctSchema ++ map showTableConstraint ctConstraints
+    tableDefs = map showColumn schema ++ map showTableConstraint constraints
 
 dropTable' :: DropTable -> SqlPersistT IO [Text]
-dropTable' DropTable{..} = return ["DROP TABLE " <> quote dtName]
+dropTable' DropTable{..} = return ["DROP TABLE " <> quote table]
 
 addColumn' :: AddColumn -> SqlPersistT IO [Text]
 addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
   where
-    Column{..} = acColumn
-    alterTable = "ALTER TABLE " <> quote acTable <> " "
+    Column{..} = column
+    alterTable = "ALTER TABLE " <> quote table <> " "
     -- The CREATE query with the default specified by AddColumn{acDefault}
-    createQuery = alterTable <> "ADD COLUMN " <> showColumn acColumn <> createDefault
-    createDefault = case acDefault of
+    createQuery = alterTable <> "ADD COLUMN " <> showColumn column <> createDefault
+    createDefault = case colDefault of
       Nothing -> ""
       Just def -> " DEFAULT " <> def
     -- The ALTER query to drop the default (if acDefault was set)
     setJust v = fmap $ const v
     alterQuery =
-      setJust (alterTable <> "ALTER COLUMN " <> quote colName <> " DROP DEFAULT") acDefault
+      setJust (alterTable <> "ALTER COLUMN " <> quote colName <> " DROP DEFAULT") colDefault
 
 dropColumn' :: DropColumn -> SqlPersistT IO [Text]
 dropColumn' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUMN " <> quote col]
   where
-    (tab, col) = dcColumn
+    (tab, col) = column
 
 {- Helpers -}
 

@@ -28,15 +28,15 @@ import Database.Persist.Sql (PersistValue(..), rawExecute, rawSql)
 
 createPerson :: CreateTable
 createPerson = CreateTable
-  { ctName = "person"
-  , ctSchema =
+  { name = "person"
+  , schema =
       [ Column "id" SqlInt32 [NotNull, AutoIncrement]
       , Column "name" SqlString [NotNull]
       , Column "age" SqlInt32 [NotNull]
       , Column "alive" SqlBool [NotNull]
       , Column "hometown" SqlInt64 [References ("cities", "id")]
       ]
-  , ctConstraints =
+  , constraints =
       [ PrimaryKey ["id"]
       , Unique "person_identifier" ["name", "age", "hometown"]
       ]

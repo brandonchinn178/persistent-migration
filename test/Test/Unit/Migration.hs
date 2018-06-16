@@ -17,15 +17,15 @@ testMigrations dir backend = testGroup "migrations"
   [ goldenMigration' "Basic migration" defaultDatabase
       [ Operation (0 ~> 1) $
           CreateTable
-            { ctName = "person"
-            , ctSchema =
+            { name = "person"
+            , schema =
                 [ Column "id" SqlInt32 []
                 , Column "name" SqlString [NotNull]
                 , Column "age" SqlInt32 [NotNull]
                 , Column "alive" SqlBool [NotNull]
                 , Column "hometown" SqlInt64 [References ("cities", "id")]
                 ]
-            , ctConstraints =
+            , constraints =
                 [ PrimaryKey ["id"]
                 , Unique "unique_name" ["name"]
                 ]
@@ -61,7 +61,7 @@ testMigrations dir backend = testGroup "migrations"
 -- | Run a goldens test for a migration.
 goldenMigration
   :: FilePath -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
-goldenMigration dir backend name testBackend migration = goldenVsText dir name $ do
+goldenMigration dir backend testName testBackend migration = goldenVsText dir testName $ do
   setDatabase testBackend
   Text.unlines <$> getMigration' migration
   where

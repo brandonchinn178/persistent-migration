@@ -34,31 +34,31 @@ testProperties = testGroup "properties"
       let ct = CreateTable "foo" cols []
       return . not . isValidOperation $ ct
   , testProperty "Duplicate Constraints in CreateTable" $
-      forAll arbitrary $ \ct@CreateTable{ctConstraints} -> do
-        ctConstraints' <- mapSomeDupl ctConstraints
-        return . not . isValidOperation $ ct{ctConstraints = ctConstraints'}
+      forAll arbitrary $ \ct@CreateTable{constraints} -> do
+        constraints' <- mapSomeDupl constraints
+        return . not . isValidOperation $ ct{constraints = constraints'}
   , testProperty "Constraint references non-existent column" $
       forAll arbitrary $ \ct@CreateTable{..} -> do
-        let existing = map (Identifier . colName) ctSchema
+        let existing = map (Identifier . colName) schema
             genConstraint = do
-              Identifier name <- arbitrary
+              Identifier name' <- arbitrary
               cols <- map unIdent <$> listOf1 (arbitrary `suchThat` (`notElem` existing))
-              elements [PrimaryKey cols, Unique name cols]
+              elements [PrimaryKey cols, Unique name' cols]
         newConstraints <- listOf1 genConstraint
-        return . not . isValidOperation $ ct{ctConstraints = ctConstraints ++ newConstraints}
+        return . not . isValidOperation $ ct{constraints = constraints ++ newConstraints}
   , testProperty "Duplicate ColumnProps in AddColumn" $
       forAll arbitrary $ \col@Column{colProps} -> do
-        Identifier acTable <- arbitrary
-        acDefault <- arbitrary
+        Identifier table <- arbitrary
+        colDefault <- arbitrary
         colProps' <- mapSomeDupl colProps
-        let acColumn = col{colProps = colProps'}
+        let column = col{colProps = colProps'}
         return $ not (null colProps) ==> not (isValidOperation AddColumn{..})
   , testProperty "Non-null AddColumn without default" $
       forAll arbitrary $ \col@Column{colProps} -> do
-        Identifier acTable <- arbitrary
+        Identifier table <- arbitrary
         let colProps' = if NotNull `elem` colProps then colProps else NotNull : colProps
-            acColumn = col{colProps = colProps'}
-            acDefault = Nothing
+            column = col{colProps = colProps'}
+            colDefault = Nothing
         return . not . isValidOperation $ AddColumn{..}
   ]
 

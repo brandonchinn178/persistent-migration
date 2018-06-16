@@ -7,6 +7,7 @@ Portability :  portable
 Defines a migration framework for the persistent library.
 -}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -91,14 +92,14 @@ getCurrVersion backend = do
   extractVersion <$> rawSql queryVersion []
   where
     migrationSchema = CreateTable
-      { ctName = "persistent_migration"
-      , ctSchema =
+      { name = "persistent_migration"
+      , schema =
           [ Column "id" SqlInt32 [NotNull, AutoIncrement]
           , Column "version" SqlInt32 [NotNull]
           , Column "label" SqlString []
           , Column "timestamp" SqlDayTime [NotNull]
           ]
-      , ctConstraints =
+      , constraints =
           [ PrimaryKey ["id"]
           ]
       }
@@ -187,19 +188,19 @@ rawExecute' = mapM_ $ \s -> rawExecute s []
 
 -- | An operation to create a table according to the specified schema.
 data CreateTable = CreateTable
-  { ctName        :: Text
-  , ctSchema      :: [Column]
-  , ctConstraints :: [TableConstraint]
+  { name        :: Text
+  , schema      :: [Column]
+  , constraints :: [TableConstraint]
   } deriving (Show)
 
 instance Migrateable CreateTable where
   validateOperation ct@CreateTable{..} = do
-    mapM_ validateColumn ctSchema
-    when (hasDuplicateConstrs ctConstraints) $
+    mapM_ validateColumn schema
+    when (hasDuplicateConstrs constraints) $
       Left $ "Duplicate table constraints detected: " ++ show ct
 
-    let constraintCols = concatMap getConstraintColumns ctConstraints
-        schemaCols = map colName ctSchema
+    let constraintCols = concatMap getConstraintColumns constraints
+        schemaCols = map colName schema
     when (any (`notElem` schemaCols) constraintCols) $
       Left $ "Table constraint references non-existent column: " ++ show ct
 
@@ -207,7 +208,7 @@ instance Migrateable CreateTable where
 
 -- | An operation to drop the given table.
 newtype DropTable = DropTable
-  { dtName :: Text
+  { table :: Text
   }
   deriving (Show)
 
@@ -216,23 +217,23 @@ instance Migrateable DropTable where
 
 -- | An operation to add the given column to an existing table.
 data AddColumn = AddColumn
-  { acTable   :: Text
-  , acColumn  :: Column
-  , acDefault :: Maybe Text
+  { table      :: Text
+  , column     :: Column
+  , colDefault :: Maybe Text
     -- ^ The default for existing rows; required if the column is non-nullable
   } deriving (Show)
 
 instance Migrateable AddColumn where
   validateOperation ac@AddColumn{..} = do
-    validateColumn acColumn
-    when (NotNull `elem` colProps acColumn && isNothing acDefault) $
+    validateColumn column
+    when (NotNull `elem` colProps column && isNothing colDefault) $
       Left $ "Adding a non-nullable column requires a default: " ++ show ac
 
   getMigrationText = addColumn
 
 -- | An operation to drop the given column to an existing table.
 newtype DropColumn = DropColumn
-  { dcColumn :: ColumnIdentifier
+  { column :: ColumnIdentifier
   } deriving (Show)
 
 instance Migrateable DropColumn where
