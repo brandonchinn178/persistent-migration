@@ -25,6 +25,9 @@ module Database.Persist.Migration
   -- * Core operations
   , CreateTable(..)
   , DropTable(..)
+  , RenameTable(..)
+  , AddConstraint(..)
+  , DropConstraint(..)
   , AddColumn(..)
   , DropColumn(..)
   , RawOperation(..)
