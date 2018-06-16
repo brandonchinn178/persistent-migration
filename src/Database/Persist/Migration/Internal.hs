@@ -217,8 +217,8 @@ instance Migrateable DropTable where
 
 -- | An operation to add the given column to an existing table.
 data AddColumn = AddColumn
-  { table   :: Text
-  , column  :: Column
+  { table      :: Text
+  , column     :: Column
   , colDefault :: Maybe Text
     -- ^ The default for existing rows; required if the column is non-nullable
   } deriving (Show)
