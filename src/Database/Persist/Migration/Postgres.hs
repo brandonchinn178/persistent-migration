@@ -69,12 +69,12 @@ addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
   where
     Column{..} = column
     alterTable = "ALTER TABLE " <> quote table <> " "
-    -- The CREATE query with the default specified by AddColumn{acDefault}
+    -- The CREATE query with the default specified by AddColumn{colDefault}
     createQuery = alterTable <> "ADD COLUMN " <> showColumn column <> createDefault
     createDefault = case colDefault of
       Nothing -> ""
       Just def -> " DEFAULT " <> def
-    -- The ALTER query to drop the default (if acDefault was set)
+    -- The ALTER query to drop the default (if colDefault was set)
     setJust v = fmap $ const v
     alterQuery =
       setJust (alterTable <> "ALTER COLUMN " <> quote colName <> " DROP DEFAULT") colDefault
