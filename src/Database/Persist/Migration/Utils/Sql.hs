@@ -12,6 +12,7 @@ Defines helper functions for writing SQL queries.
 module Database.Persist.Migration.Utils.Sql
   ( commas
   , uncommas
+  , uncommas'
   , quote
   , interpolate
   ) where
@@ -42,6 +43,10 @@ commas t = go (Text.unpack t) "" [] (0 :: Int)
 -- | Join the given Text with commas separating each item.
 uncommas :: [Text] -> Text
 uncommas = Text.intercalate ","
+
+-- | Join the given Text with commas separating each item and quoting them.
+uncommas' :: [Text] -> Text
+uncommas' = uncommas . map quote
 
 -- | Quote the given Text.
 quote :: Text -> Text

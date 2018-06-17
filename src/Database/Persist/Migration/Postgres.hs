@@ -23,18 +23,21 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration
     ( AddColumn(..)
+    , AddConstraint(..)
     , Column(..)
     , ColumnProp(..)
     , CreateTable(..)
     , DropColumn(..)
+    , DropConstraint(..)
     , DropTable(..)
+    , RenameTable(..)
     , MigrateBackend(..)
     , MigrateSettings
     , Migration
     , TableConstraint(..)
     )
 import qualified Database.Persist.Migration.Internal as Migration
-import Database.Persist.Migration.Utils.Sql (quote, uncommas)
+import Database.Persist.Migration.Utils.Sql (quote, uncommas, uncommas')
 import Database.Persist.Sql (SqlPersistT, SqlType(..))
 
 -- | Run a migration with the Postgres backend.
@@ -50,6 +53,9 @@ backend :: MigrateBackend
 backend = MigrateBackend
   { createTable = createTable'
   , dropTable = dropTable'
+  , renameTable = renameTable'
+  , addConstraint = addConstraint'
+  , dropConstraint = dropConstraint'
   , addColumn = addColumn'
   , dropColumn = dropColumn'
   }
@@ -63,6 +69,21 @@ createTable' ifNotExists CreateTable{..} = return
 
 dropTable' :: DropTable -> SqlPersistT IO [Text]
 dropTable' DropTable{..} = return ["DROP TABLE " <> quote table]
+
+renameTable' :: RenameTable -> SqlPersistT IO [Text]
+renameTable' RenameTable{..} = return
+  ["ALTER TABLE " <> quote from <> " RENAME TO " <> quote to]
+
+addConstraint' :: AddConstraint -> SqlPersistT IO [Text]
+addConstraint' AddConstraint{..} = return ["ALTER TABLE " <> quote table <> " " <> statement]
+  where
+    statement = case constraint of
+      PrimaryKey cols -> "ADD PRIMARY KEY (" <> uncommas' cols <> ")"
+      Unique label cols -> "ADD CONSTRAINT " <> quote label <> " UNIQUE (" <> uncommas' cols <> ")"
+
+dropConstraint' :: DropConstraint -> SqlPersistT IO [Text]
+dropConstraint' DropConstraint{..} = return
+  ["ALTER TABLE " <> quote table <> " DROP CONSTRAINT " <> constraint]
 
 addColumn' :: AddColumn -> SqlPersistT IO [Text]
 addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
@@ -126,7 +147,5 @@ showColumnProp = \case
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text
 showTableConstraint = \case
-  PrimaryKey cols -> "PRIMARY KEY (" <> showCols cols <> ")"
-  Unique name cols -> "CONSTRAINT " <> quote name <> " UNIQUE (" <> showCols cols <> ")"
-  where
-    showCols = uncommas . map quote
+  PrimaryKey cols -> "PRIMARY KEY (" <> uncommas' cols <> ")"
+  Unique name cols -> "CONSTRAINT " <> quote name <> " UNIQUE (" <> uncommas' cols <> ")"

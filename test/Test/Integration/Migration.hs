@@ -38,7 +38,7 @@ import Database.Persist.Migration
     , hasMigration
     , (~>)
     )
-import Database.Persist.Migration.Utils.Sql (interpolate, uncommas)
+import Database.Persist.Migration.Utils.Sql (interpolate, uncommas, uncommas')
 import Database.Persist.Sql
     ( PersistValue(..)
     , Single(..)
@@ -148,7 +148,7 @@ testMigrations dir backend getPool = testGroup "migrations"
       let cols = ["name", "hometown"] ++ map fst extra
           vals = ["'" <> name <> "'", "1"] ++ map snd extra
       in rawExecute
-          ("INSERT INTO person(" <> uncommas cols <> ") VALUES (" <> uncommas vals <> ")")
+          ("INSERT INTO person(" <> uncommas' cols <> ") VALUES (" <> uncommas vals <> ")")
           []
 
 -- | Run a test where:
