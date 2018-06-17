@@ -11,11 +11,9 @@ import Control.Monad.Catch (SomeException(..), try)
 import Control.Monad.IO.Class (liftIO)
 import Data.List (nub)
 import Data.Maybe (mapMaybe)
-import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Database.Persist.Migration.Internal
-import Database.Persist.Migration.Utils.Sql (quote)
-import Database.Persist.Sql (SqlBackend, rawExecute)
+import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (monadicIO, pick, run)
@@ -26,19 +24,27 @@ import Test.Utils.QuickCheck ()
 -- | A test suite for testing migration properties.
 testProperties :: MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testProperties backend getPool = testGroup "properties"
-  [ testProperty "Create arbitrary tables" $ monadicIO $ do
+  [ testProperty "Create and drop tables" $ monadicIO $ do
       table <- pick arbitrary
       fkTables <- pick $ getForeignKeyTables table
-      let createTable = getMigrationText backend >=> mapM_ rawExecutePrint
-          dropTable CreateTable{name} = rawExecutePrint . ("DROP TABLE " <>) . quote $ name
+      let dropTable CreateTable{name} = runOperation' $ DropTable name
       runSql' $ do
-        mapM_ createTable fkTables
-        createTable table
+        mapM_ runOperation' fkTables
+        runOperation' table
         dropTable table
         mapM_ dropTable fkTables
   ]
   where
     runSql' f = run $ getPool >>= \pool -> runSql pool f
+    runOperation' :: Migrateable op => op -> SqlPersistT IO ()
+    runOperation' = runOperation backend
+
+{- Helpers -}
+
+-- | Run the given operation.
+runOperation :: Migrateable op => MigrateBackend -> op -> SqlPersistT IO ()
+runOperation backend = getMigrationText backend >=> mapM_ rawExecutePrint
+  where
     -- if rawExecute fails, show the sql query run
     rawExecutePrint sql = try (rawExecute sql []) >>= \case
       Right () -> return ()
