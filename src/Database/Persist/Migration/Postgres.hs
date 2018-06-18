@@ -68,7 +68,7 @@ createTable' ifNotExists CreateTable{..} = return
     tableDefs = map showColumn schema ++ map showTableConstraint constraints
 
 dropTable' :: DropTable -> SqlPersistT IO [Text]
-dropTable' DropTable{..} = return ["DROP TABLE " <> quote table]
+dropTable' DropTable{..} = return ["DROP TABLE IF EXISTS " <> quote table]
 
 renameTable' :: RenameTable -> SqlPersistT IO [Text]
 renameTable' RenameTable{..} = return

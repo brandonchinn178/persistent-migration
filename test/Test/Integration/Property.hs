@@ -19,13 +19,21 @@ import Test.QuickCheck
 import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-import Test.Utils.QuickCheck ()
+import Test.Utils.QuickCheck (Identifier(..))
 
 -- | A test suite for testing migration properties.
 testProperties :: MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testProperties backend getPool = testGroup "properties"
   [ testProperty "Create and drop tables" $ withCreateTable' $
       const $ return ()
+  , testProperty "Rename table" $ withCreateTable' $ \(table, fkTables) -> do
+      let tableName = name table
+          fkNames = map name fkTables
+      Identifier newName <- pick $ arbitrary `suchThat`
+        ((`notElem` tableName:fkNames) . unIdent)
+      runSql' getPool $ do
+        runOperation backend $ RenameTable tableName newName
+        runOperation backend $ DropTable newName
   ]
   where
     withCreateTable' = withCreateTable getPool backend
@@ -56,13 +64,9 @@ withCreateTable
 withCreateTable getPool backend action = monadicIO $ do
   table <- pick arbitrary
   fkTables <- pick $ getForeignKeyTables table
-  runSql' getPool $ do
-    mapM_ (runOperation backend) fkTables
-    runOperation backend table
+  runSql' getPool $ mapM_ (runOperation backend) (fkTables ++ [table])
   action (table, fkTables)
-  runSql' getPool $ do
-    dropTable' table
-    mapM_ dropTable' fkTables
+  runSql' getPool (mapM_ dropTable' (table:fkTables))
   where
     dropTable' CreateTable{name} = runOperation backend $ DropTable name
 
