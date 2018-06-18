@@ -11,7 +11,9 @@ import Control.Monad.Catch (SomeException(..), try)
 import Control.Monad.IO.Class (liftIO)
 import Data.List (nub)
 import Data.Maybe (mapMaybe)
+import Data.Monoid ((<>))
 import Data.Pool (Pool)
+import qualified Data.Text as Text
 import Database.Persist.Migration.Internal
 import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
@@ -34,6 +36,17 @@ testProperties backend getPool = testGroup "properties"
       runSql' getPool $ do
         runOperation backend $ RenameTable tableName newName
         runOperation backend $ DropTable newName
+  , testProperty "Add UNIQUE constraint" $ withCreateTable' $ \(table, _) -> do
+      let getUniqueCols = \case
+            PrimaryKey _ -> []
+            Unique _ cols -> cols
+          tableCols = map colName $ schema table
+          uniqueCols = concatMap getUniqueCols $ constraints table
+          nonUniqueCols = take 32 $ filter (`notElem` uniqueCols) tableCols
+      Identifier uniqueName <- pick arbitrary
+      let uniqueName' = Text.take 63 $ "unique_" <> uniqueName
+      runSql' getPool $
+        runOperation backend $ AddConstraint (name table) $ Unique uniqueName' nonUniqueCols
   ]
   where
     withCreateTable' = withCreateTable getPool backend
