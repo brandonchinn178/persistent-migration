@@ -16,7 +16,7 @@ import Database.Persist.Migration.Internal
 import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
 import Test.QuickCheck
-import Test.QuickCheck.Monadic (monadicIO, pick, run)
+import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 import Test.Utils.QuickCheck ()
@@ -24,22 +24,17 @@ import Test.Utils.QuickCheck ()
 -- | A test suite for testing migration properties.
 testProperties :: MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testProperties backend getPool = testGroup "properties"
-  [ testProperty "Create and drop tables" $ monadicIO $ do
-      table <- pick arbitrary
-      fkTables <- pick $ getForeignKeyTables table
-      let dropTable CreateTable{name} = runOperation' $ DropTable name
-      runSql' $ do
-        mapM_ runOperation' fkTables
-        runOperation' table
-        dropTable table
-        mapM_ dropTable fkTables
+  [ testProperty "Create and drop tables" $ withCreateTable' $
+      const $ return ()
   ]
   where
-    runSql' f = run $ getPool >>= \pool -> runSql pool f
-    runOperation' :: Migrateable op => op -> SqlPersistT IO ()
-    runOperation' = runOperation backend
+    withCreateTable' = withCreateTable getPool backend
 
 {- Helpers -}
+
+-- | Run the given Sql query.
+runSql' :: IO (Pool SqlBackend) -> SqlPersistT IO () -> PropertyM IO ()
+runSql' getPool f = run $ getPool >>= \pool -> runSql pool f
 
 -- | Run the given operation.
 runOperation :: Migrateable op => MigrateBackend -> op -> SqlPersistT IO ()
@@ -51,6 +46,25 @@ runOperation backend = getMigrationText backend >=> mapM_ rawExecutePrint
       Left (SomeException e) -> do
         liftIO $ print sql
         fail $ show e
+
+-- | Create a table and its foreign key dependencies, run the given action, and drop the tables.
+withCreateTable
+  :: IO (Pool SqlBackend)
+  -> MigrateBackend
+  -> ((CreateTable, [CreateTable]) -> PropertyM IO ())
+  -> Property
+withCreateTable getPool backend action = monadicIO $ do
+  table <- pick arbitrary
+  fkTables <- pick $ getForeignKeyTables table
+  runSql' getPool $ do
+    mapM_ (runOperation backend) fkTables
+    runOperation backend table
+  action (table, fkTables)
+  runSql' getPool $ do
+    dropTable' table
+    mapM_ dropTable' fkTables
+  where
+    dropTable' CreateTable{name} = runOperation backend $ DropTable name
 
 -- | Get the CreateTable operations that are necessary for the foreign keys in the
 -- given CreateTable operation.
