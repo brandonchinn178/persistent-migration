@@ -33,9 +33,9 @@ testProperties backend getPool = testGroup "properties"
           fkNames = map name fkTables
       Identifier newName <- pick $ arbitrary `suchThat`
         ((`notElem` tableName:fkNames) . unIdent)
-      runSql' getPool $ do
-        runOperation backend $ RenameTable tableName newName
-        runOperation backend $ DropTable newName
+      runSqlPool' $ do
+        runOperation' $ RenameTable tableName newName
+        runOperation' $ DropTable newName
   , testProperty "Add UNIQUE constraint" $ withCreateTable' $ \(table, _) -> do
       let getUniqueCols = \case
             PrimaryKey _ -> []
@@ -45,17 +45,20 @@ testProperties backend getPool = testGroup "properties"
           nonUniqueCols = take 32 $ filter (`notElem` uniqueCols) tableCols
       Identifier uniqueName <- pick arbitrary
       let uniqueName' = Text.take 63 $ "unique_" <> uniqueName
-      runSql' getPool $
-        runOperation backend $ AddConstraint (name table) $ Unique uniqueName' nonUniqueCols
+      runSqlPool' $
+        runOperation' $ AddConstraint (name table) $ Unique uniqueName' nonUniqueCols
   ]
   where
     withCreateTable' = withCreateTable getPool backend
+    runSqlPool' = runSqlPool getPool
+    runOperation' :: Migrateable op => op -> SqlPersistT IO ()
+    runOperation' = runOperation backend
 
 {- Helpers -}
 
--- | Run the given Sql query.
-runSql' :: IO (Pool SqlBackend) -> SqlPersistT IO () -> PropertyM IO ()
-runSql' getPool f = run $ getPool >>= \pool -> runSql pool f
+-- | Run the given Sql query in the given SqlBackend.
+runSqlPool :: IO (Pool SqlBackend) -> SqlPersistT IO () -> PropertyM IO ()
+runSqlPool getPool f = run $ getPool >>= \pool -> runSql pool f
 
 -- | Run the given operation.
 runOperation :: Migrateable op => MigrateBackend -> op -> SqlPersistT IO ()
@@ -77,11 +80,14 @@ withCreateTable
 withCreateTable getPool backend action = monadicIO $ do
   table <- pick arbitrary
   fkTables <- pick $ getForeignKeyTables table
-  runSql' getPool $ mapM_ (runOperation backend) (fkTables ++ [table])
+  runSqlPool' $ mapM_ runOperation' (fkTables ++ [table])
   action (table, fkTables)
-  runSql' getPool (mapM_ dropTable' (table:fkTables))
+  runSqlPool' $ mapM_ dropTable' (table:fkTables)
   where
-    dropTable' CreateTable{name} = runOperation backend $ DropTable name
+    dropTable' CreateTable{name} = runOperation' $ DropTable name
+    runSqlPool' = runSqlPool getPool
+    runOperation' :: Migrateable op => op -> SqlPersistT IO ()
+    runOperation' = runOperation backend
 
 -- | Get the CreateTable operations that are necessary for the foreign keys in the
 -- given CreateTable operation.
