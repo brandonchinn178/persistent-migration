@@ -6,7 +6,7 @@
 
 module Test.Integration.Property (testProperties) where
 
-import Control.Monad ((>=>))
+import Control.Monad (unless, (>=>))
 import Control.Monad.Catch (SomeException(..), try)
 import Control.Monad.IO.Class (liftIO)
 import Data.List (nub)
@@ -18,7 +18,8 @@ import Database.Persist.Migration.Internal
 import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
 import Test.QuickCheck
-import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run)
+import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run, stop)
+import Test.QuickCheck.Property (rejected)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 import Test.Utils.QuickCheck (Identifier(..))
@@ -47,8 +48,20 @@ testProperties backend getPool = testGroup "properties"
       let uniqueName' = Text.take 63 $ "unique_" <> uniqueName
       runSqlPool' $
         runOperation' $ AddConstraint (name table) $ Unique uniqueName' nonUniqueCols
+  , testProperty "Drop UNIQUE constraint" $ withCreateTable' $ \(table, _) -> do
+      let getUniqueName = \case
+            PrimaryKey _ -> Nothing
+            Unique n _ -> Just n
+          uniqueNames = mapMaybe getUniqueName $ constraints table
+      if null uniqueNames
+        then return False
+        else do
+          uniqueName <- pick $ elements uniqueNames
+          runSqlPool' $ runOperation' $ DropConstraint (name table) uniqueName
+          return True
   ]
   where
+    withCreateTable' :: PseudoBool a => ((CreateTable, [CreateTable]) -> PropertyM IO a) -> Property
     withCreateTable' = withCreateTable getPool backend
     runSqlPool' = runSqlPool getPool
     runOperation' :: Migrateable op => op -> SqlPersistT IO ()
@@ -73,16 +86,18 @@ runOperation backend = getMigrationText backend >=> mapM_ rawExecutePrint
 
 -- | Create a table and its foreign key dependencies, run the given action, and drop the tables.
 withCreateTable
-  :: IO (Pool SqlBackend)
+  :: PseudoBool a
+  => IO (Pool SqlBackend)
   -> MigrateBackend
-  -> ((CreateTable, [CreateTable]) -> PropertyM IO ())
+  -> ((CreateTable, [CreateTable]) -> PropertyM IO a)
   -> Property
 withCreateTable getPool backend action = monadicIO $ do
   table <- pick arbitrary
   fkTables <- pick $ getForeignKeyTables table
   runSqlPool' $ mapM_ runOperation' (fkTables ++ [table])
-  action (table, fkTables)
+  isSuccess <- toBool <$> action (table, fkTables)
   runSqlPool' $ mapM_ dropTable' (table:fkTables)
+  unless isSuccess $ stop rejected
   where
     dropTable' CreateTable{name} = runOperation' $ DropTable name
     runSqlPool' = runSqlPool getPool
@@ -107,3 +122,10 @@ getForeignKeyTables ct =
       { name = name
       , schema = map (\col -> col{colProps = noFKs col}) $ schema ct'
       }
+
+class PseudoBool a where
+  toBool :: a -> Bool
+instance PseudoBool () where
+  toBool = const True
+instance PseudoBool Bool where
+  toBool = id
