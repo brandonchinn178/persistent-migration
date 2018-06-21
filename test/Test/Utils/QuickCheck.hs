@@ -15,11 +15,11 @@ import Data.ByteString (ByteString)
 import Data.List (nub)
 import Data.Monoid ((<>))
 import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
 import Data.Time.Calendar (Day, fromGregorian)
 import Data.Time.Clock (UTCTime(..), secondsToDiffTime)
 import Data.Time.LocalTime (TimeOfDay(..))
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
 import Database.Persist.Migration
     (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
 import Database.Persist.Sql (SqlType(..))

@@ -30,14 +30,15 @@ import Database.Persist.Migration
     , DropColumn(..)
     , DropConstraint(..)
     , DropTable(..)
-    , RenameTable(..)
     , MigrateBackend(..)
     , MigrateSettings
     , Migration
+    , RenameTable(..)
     , TableConstraint(..)
     )
 import qualified Database.Persist.Migration.Internal as Migration
-import Database.Persist.Migration.Utils.Sql (quote, showValue, uncommas, uncommas')
+import Database.Persist.Migration.Utils.Sql
+    (quote, showValue, uncommas, uncommas')
 import Database.Persist.Sql (SqlPersistT, SqlType(..))
 
 -- | Run a migration with the Postgres backend.
