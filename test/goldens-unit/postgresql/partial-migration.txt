@@ -1,1 +1,1 @@
-DROP TABLE "person"
+DROP TABLE IF EXISTS "person"

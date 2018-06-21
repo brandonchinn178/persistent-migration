@@ -68,11 +68,14 @@ type Migration = [Operation]
 
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
-  { createTable :: Bool -> CreateTable -> SqlPersistT IO [Text]
+  { createTable    :: Bool -> CreateTable -> SqlPersistT IO [Text]
       -- ^ create a table (True = IF NOT EXISTS)
-  , dropTable   :: DropTable -> SqlPersistT IO [Text]
-  , addColumn   :: AddColumn -> SqlPersistT IO [Text]
-  , dropColumn  :: DropColumn -> SqlPersistT IO [Text]
+  , dropTable      :: DropTable -> SqlPersistT IO [Text]
+  , renameTable    :: RenameTable -> SqlPersistT IO [Text]
+  , addConstraint  :: AddConstraint -> SqlPersistT IO [Text]
+  , dropConstraint :: DropConstraint -> SqlPersistT IO [Text]
+  , addColumn      :: AddColumn -> SqlPersistT IO [Text]
+  , dropColumn     :: DropColumn -> SqlPersistT IO [Text]
   }
 
 -- | The type class for data types that can be migrated.
@@ -215,11 +218,38 @@ newtype DropTable = DropTable
 instance Migrateable DropTable where
   getMigrationText = dropTable
 
+-- | An operation to rename a table.
+data RenameTable = RenameTable
+  { from :: Text
+  , to   :: Text
+  } deriving (Show)
+
+instance Migrateable RenameTable where
+  getMigrationText = renameTable
+
+-- | An operation to add a table constraint.
+data AddConstraint = AddConstraint
+  { table      :: Text
+  , constraint :: TableConstraint
+  } deriving (Show)
+
+instance Migrateable AddConstraint where
+  getMigrationText = addConstraint
+
+-- | An operation to drop a table constraint.
+data DropConstraint = DropConstraint
+  { table      :: Text
+  , constraint :: Text
+  } deriving (Show)
+
+instance Migrateable DropConstraint where
+  getMigrationText = dropConstraint
+
 -- | An operation to add the given column to an existing table.
 data AddColumn = AddColumn
   { table      :: Text
   , column     :: Column
-  , colDefault :: Maybe Text
+  , colDefault :: Maybe PersistValue
     -- ^ The default for existing rows; required if the column is non-nullable
   } deriving (Show)
 

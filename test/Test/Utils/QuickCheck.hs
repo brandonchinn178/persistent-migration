@@ -11,10 +11,15 @@ module Test.Utils.QuickCheck
   ) where
 
 import Control.Monad ((>=>))
+import Data.ByteString (ByteString)
 import Data.List (nub)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
+import Data.Time.Calendar (Day, fromGregorian)
+import Data.Time.Clock (UTCTime(..), secondsToDiffTime)
+import Data.Time.LocalTime (TimeOfDay(..))
 import Database.Persist.Migration
     (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
 import Database.Persist.Sql (SqlType(..))
@@ -127,6 +132,20 @@ instance (Arbitrary a, Eq a) => Arbitrary (DistinctList a) where
 
 instance Arbitrary Text where
   arbitrary = Text.pack . getUnicodeString <$> arbitrary
+
+instance Arbitrary ByteString where
+  arbitrary = Text.encodeUtf8 <$> arbitrary
+
+instance Arbitrary Day where
+  arbitrary = fromGregorian <$> choose (1, 294276) <*> choose (1, 12) <*> choose (1, 31)
+
+instance Arbitrary TimeOfDay where
+  arbitrary = TimeOfDay <$> choose (0, 23) <*> choose (0, 59) <*> genSeconds
+    where
+      genSeconds = fromRational . toRational <$> (choose (0, 60) :: Gen Double)
+
+instance Arbitrary UTCTime where
+  arbitrary = UTCTime <$> arbitrary <*> (secondsToDiffTime <$> choose (0, 86400))
 
 -- | Randomly modify at least one element in the list with the given function.
 mapSome :: (a -> a) -> [a] -> Gen [a]
