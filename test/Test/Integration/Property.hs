@@ -15,7 +15,7 @@ import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import qualified Data.Text as Text
 import Database.Persist.Migration.Internal
-import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
+import Database.Persist.Sql (PersistValue(..), SqlBackend, SqlPersistT, SqlType(..), rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run, stop)
@@ -59,6 +59,50 @@ testProperties backend getPool = testGroup "properties"
           uniqueName <- pick $ elements uniqueNames
           runSqlPool' $ runOperation' $ DropConstraint (name table) uniqueName
           return True
+  , testProperty "Add column" $ withCreateTable' $ \(table, fkTables) -> do
+      -- generate a new column
+      col <- pick arbitrary
+
+      -- pick a new name for the column
+      let cols = map colName $ schema table
+      Identifier newName <- pick $ arbitrary `suchThat` ((`notElem` cols) . unIdent)
+
+      -- if foreign key tables exist, update any foreign key references to point to one of those.
+      -- otherwise, strip out any foreign key references.
+      let splitProps [] = (False, [])
+          splitProps (x:xs) =
+            let (mRef, props) = splitProps xs
+            in case x of
+              References _ -> (True, props)
+              AutoIncrement -> (mRef, props) -- don't test adding AutoIncrement columns
+              _ -> (mRef, x:props)
+      col' <-
+        let (hasReference, props) = splitProps $ colProps col
+        in if null fkTables || not hasReference
+            then return col{colProps = props}
+            else do
+              fkTable <- pick $ name <$> elements fkTables
+              return $ col{colProps = References (fkTable, "id") : props}
+
+      -- pick a default value according to nullability and sqltype
+      defaultVal <- fmap Just $ pick $ case colType col of
+        SqlString -> PersistText <$> arbitrary
+        SqlInt32 -> PersistInt64 <$> choose (-2147483648, 2147483647)
+        SqlInt64 -> PersistInt64 <$> choose (-2147483648, 2147483647)
+        SqlReal -> PersistDouble <$> arbitrary
+        SqlNumeric _ _ -> PersistRational <$> arbitrary
+        SqlBool -> PersistBool <$> arbitrary
+        SqlDay -> PersistDay <$> arbitrary
+        SqlTime -> PersistTimeOfDay <$> arbitrary
+        SqlDayTime -> PersistUTCTime <$> arbitrary
+        SqlBlob -> PersistByteString <$> arbitrary
+        SqlOther _ -> fail "SqlOther not supported"
+      defaultVal' <- if NotNull `elem` colProps col
+        then return defaultVal
+        else pick $ elements [Nothing, defaultVal]
+
+      runSqlPool' $ runOperation' $ AddColumn (name table) col'{colName = newName} defaultVal'
+  -- , testProperty "Drop column" $ withCreateTable' $ const $ return ()
   ]
   where
     withCreateTable' :: PseudoBool a => ((CreateTable, [CreateTable]) -> PropertyM IO a) -> Property
