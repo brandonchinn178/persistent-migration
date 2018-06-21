@@ -66,6 +66,3 @@ instance Migrateable DropColumn where
 
 instance Migrateable RawOperation where
   getMigrationText _ RawOperation{rawOp} = rawOp
-
-instance Migrateable NoOp where
-  getMigrationText _ _ = return []

@@ -24,7 +24,6 @@ module Database.Persist.Migration.Operation.Types
   , DropColumn(..)
     -- * Special operations
   , RawOperation(..)
-  , NoOp(..)
     -- * Auxiliary types
   , ColumnIdentifier
   , dotted
@@ -105,10 +104,6 @@ data RawOperation = RawOperation
 
 instance Show RawOperation where
   show RawOperation{message} = "RawOperation: " ++ Text.unpack message
-
--- | A noop operation.
-data NoOp = NoOp
-  deriving (Show)
 
 -- | A column identifier, table.column
 type ColumnIdentifier = (Text, Text)
