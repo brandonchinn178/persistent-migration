@@ -27,9 +27,9 @@ import Test.Utils.QuickCheck (Identifier(..))
 -- | A test suite for testing migration properties.
 testProperties :: MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testProperties backend getPool = testGroup "properties"
-  [ testProperty "Create and drop tables" $ withCreateTable' $
+  [ testProperty "Create and drop tables" $ withCreateTable $
       const $ return ()
-  , testProperty "Rename table" $ withCreateTable' $ \(table, fkTables) -> do
+  , testProperty "Rename table" $ withCreateTable $ \(table, fkTables) -> do
       let tableName = name table
           fkNames = map name fkTables
       Identifier newName <- pick $ arbitrary `suchThat`
@@ -37,7 +37,7 @@ testProperties backend getPool = testGroup "properties"
       runSqlPool' $ do
         runOperation' $ RenameTable tableName newName
         runOperation' $ DropTable newName
-  , testProperty "Add UNIQUE constraint" $ withCreateTable' $ \(table, _) -> do
+  , testProperty "Add UNIQUE constraint" $ withCreateTable $ \(table, _) -> do
       let getUniqueCols = \case
             PrimaryKey _ -> []
             Unique _ cols -> cols
@@ -48,7 +48,7 @@ testProperties backend getPool = testGroup "properties"
       let uniqueName' = Text.take 63 $ "unique_" <> uniqueName
       runSqlPool' $
         runOperation' $ AddConstraint (name table) $ Unique uniqueName' nonUniqueCols
-  , testProperty "Drop UNIQUE constraint" $ withCreateTable' $ \(table, _) -> do
+  , testProperty "Drop UNIQUE constraint" $ withCreateTable $ \(table, _) -> do
       let getUniqueName = \case
             PrimaryKey _ -> Nothing
             Unique n _ -> Just n
@@ -59,7 +59,7 @@ testProperties backend getPool = testGroup "properties"
           uniqueName <- pick $ elements uniqueNames
           runSqlPool' $ runOperation' $ DropConstraint (name table) uniqueName
           return True
-  , testProperty "Add column" $ withCreateTable' $ \(table, fkTables) -> do
+  , testProperty "Add column" $ withCreateTable $ \(table, fkTables) -> do
       -- generate a new column
       col <- pick arbitrary
 
@@ -102,17 +102,27 @@ testProperties backend getPool = testGroup "properties"
         else pick $ elements [Nothing, defaultVal]
 
       runSqlPool' $ runOperation' $ AddColumn (name table) col'{colName = newName} defaultVal'
-  , testProperty "Drop column" $ withCreateTable' $ \(table, _) -> do
+  , testProperty "Drop column" $ withCreateTable $ \(table, _) -> do
       let cols = map colName $ schema table
       col <- pick $ elements cols
       runSqlPool' $ runOperation' $ DropColumn (name table, col)
   ]
   where
-    withCreateTable' :: PseudoBool a => ((CreateTable, [CreateTable]) -> PropertyM IO a) -> Property
-    withCreateTable' = withCreateTable getPool backend
     runSqlPool' = runSqlPool getPool
     runOperation' :: Migrateable op => op -> SqlPersistT IO ()
     runOperation' = runOperation backend
+    -- | Create a table and its foreign key dependencies, then run the given action, which should
+    -- return False if the test case should be discarded (`()` == True). The tables will be dropped
+    -- when finished
+    withCreateTable :: PseudoBool a => ((CreateTable, [CreateTable]) -> PropertyM IO a) -> Property
+    withCreateTable action = monadicIO $ do
+      table <- pick arbitrary
+      fkTables <- pick $ getForeignKeyTables table
+      runSqlPool' $ mapM_ runOperation' (fkTables ++ [table])
+      isSuccess <- toBool <$> action (table, fkTables)
+      runSqlPool' $ mapM_ dropTable' (table:fkTables)
+      unless isSuccess $ stop rejected
+    dropTable' CreateTable{name} = runOperation' $ DropTable name
 
 {- Helpers -}
 
@@ -130,26 +140,6 @@ runOperation backend = getMigrationText backend >=> mapM_ rawExecutePrint
       Left (SomeException e) -> do
         liftIO $ print sql
         fail $ show e
-
--- | Create a table and its foreign key dependencies, run the given action, and drop the tables.
-withCreateTable
-  :: PseudoBool a
-  => IO (Pool SqlBackend)
-  -> MigrateBackend
-  -> ((CreateTable, [CreateTable]) -> PropertyM IO a)
-  -> Property
-withCreateTable getPool backend action = monadicIO $ do
-  table <- pick arbitrary
-  fkTables <- pick $ getForeignKeyTables table
-  runSqlPool' $ mapM_ runOperation' (fkTables ++ [table])
-  isSuccess <- toBool <$> action (table, fkTables)
-  runSqlPool' $ mapM_ dropTable' (table:fkTables)
-  unless isSuccess $ stop rejected
-  where
-    dropTable' CreateTable{name} = runOperation' $ DropTable name
-    runSqlPool' = runSqlPool getPool
-    runOperation' :: Migrateable op => op -> SqlPersistT IO ()
-    runOperation' = runOperation backend
 
 -- | Get the CreateTable operations that are necessary for the foreign keys in the
 -- given CreateTable operation.
