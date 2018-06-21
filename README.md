@@ -1,5 +1,7 @@
 # persistent-migration
 
+[![CircleCI](https://circleci.com/gh/brandonchinn178/persistent-migration/tree/master.svg?style=svg)](https://circleci.com/gh/brandonchinn178/persistent-migration/tree/master)
+
 This is a migration library for the
 [persistent](http://www.stackage.org/package/persistent) package.
 
