@@ -17,8 +17,7 @@ Defines a migration framework for the persistent library.
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Core
-  ( Migration
-  , MigrateSettings(..)
+  ( MigrateSettings(..)
   , defaultSettings
   , validateMigration
   , runMigration
@@ -34,7 +33,8 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
 import Database.Persist.Migration.Backend (MigrateBackend(..))
-import Database.Persist.Migration.Operation (Operation(..), Version)
+import Database.Persist.Migration.Operation
+    (Migration, MigrationPath(..), opPath, Operation(..), Version)
 import Database.Persist.Migration.Operation.Class (Migrateable(..))
 import Database.Persist.Migration.Operation.Types
     (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
@@ -42,9 +42,6 @@ import Database.Persist.Migration.Utils.Plan (getPath)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
-
--- | A migration is simply a list of operations.
-type Migration = [Operation]
 
 -- | Get the current version of the database, or Nothing if none exists.
 getCurrVersion :: MonadIO m => MigrateBackend -> SqlPersistT m (Maybe Version)
@@ -71,13 +68,13 @@ getCurrVersion backend = do
       [Single v] -> Just v
       _ -> error "Invalid response from the database."
 
--- | Get the migration plan given the current state of the database.
-getMigratePlan :: Migration -> Maybe Version -> Either (Version, Version) Migration
-getMigratePlan migration mVersion = case getPath edges start end of
-  Just path -> Right path
+-- | Get the list of operations to run, given the current state of the database.
+getOperations :: Migration -> Maybe Version -> Either (Version, Version) [Operation]
+getOperations migration mVersion = case getPath edges start end of
+  Just path -> Right $ concat path
   Nothing -> Left (start, end)
   where
-    edges = map (\op@Operation{opPath} -> (opPath, op)) migration
+    edges = map (\(path := ops) -> (path, ops)) migration
     start = fromMaybe (getFirstVersion migration) mVersion
     end = getLatestVersion migration
 
@@ -131,16 +128,16 @@ runMigration backend settings@MigrateSettings{..} migration = do
 getMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m [Text]
 getMigration backend _ migration = do
   either fail return $ validateMigration migration
-  either fail return $ mapM_ (\Operation{opOp} -> validateOperation opOp) migration
   currVersion <- getCurrVersion backend
-  migratePlan <- either badPath return $ getMigratePlan migration currVersion
-  concatMapM getMigrationText' migratePlan
+  operations <- either badPath return $ getOperations migration currVersion
+  either fail return $ mapM_ (\(Operation op) -> validateOperation op) operations
+  concatMapM getMigrationText' operations
   where
     badPath (start, end) = fail $ "Could not find path: " ++ show start ++ " ~> " ++ show end
     -- Utilities
     concatMapM f = fmap concat . mapM f
     -- Operation helpers
-    getMigrationText' Operation{opOp} = mapReaderT liftIO $ getMigrationText backend opOp
+    getMigrationText' (Operation op) = mapReaderT liftIO $ getMigrationText backend op
 
 -- | Execute the given SQL strings.
 rawExecute' :: MonadIO m => [Text] -> SqlPersistT m ()
