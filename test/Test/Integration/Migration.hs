@@ -31,6 +31,7 @@ import Database.Persist.Migration
     , DropColumn(..)
     , MigrateBackend
     , Migration
+    , MigrationPath(..)
     , Operation(..)
     , RawOperation(..)
     , TableConstraint(..)
@@ -73,8 +74,8 @@ City
 manualMigration :: Migration
 manualMigration =
   -- create tables
-  [ Operation (0 ~> 1) $
-      CreateTable
+  [ 0 ~> 1 :=
+    [ Operation $ CreateTable
         { name = "city"
         , schema =
             [ Column "id" SqlInt64 [NotNull, AutoIncrement]
@@ -86,8 +87,7 @@ manualMigration =
             , Unique "unique_city" ["state", "name"]
             ]
         }
-  , Operation (1 ~> 2) $
-      CreateTable
+    , Operation $ CreateTable
         { name = "person"
         , schema =
             [ Column "id" SqlInt64 [NotNull, AutoIncrement]
@@ -98,20 +98,30 @@ manualMigration =
             [ PrimaryKey ["id"]
             ]
         }
+    ]
 
   -- add binary sex column
-  , Operation (2 ~> 3) $ AddColumn "person" (Column "sex" SqlInt32 []) Nothing
+  , 1 ~> 2 :=
+    [ Operation $ AddColumn "person" (Column "sex" SqlInt32 []) Nothing
+    ]
 
   -- change binary sex to stringly gender
-  , Operation (3 ~> 4) $ AddColumn "person" (Column "gender" SqlString []) Nothing
-  , Operation (4 ~> 5) migrateGender
-  , Operation (5 ~> 6) $ DropColumn ("person", "sex")
+  , 2 ~> 3 :=
+    [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
+    , Operation migrateGender
+    , Operation $ DropColumn ("person", "sex")
+    ]
+
   -- shortcut for databases that hadn't already added the sex column
-  , Operation (2 ~> 6) $ AddColumn "person" (Column "gender" SqlString []) Nothing
+  , 1 ~> 3 :=
+    [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
+    ]
 
   -- add colorblind column, with everyone currently in the database being not colorblind
-  , Operation (6 ~> 7) $
-      AddColumn "person" (Column "colorblind" SqlBool [NotNull]) (Just $ PersistBool False)
+  , 3 ~> 4 :=
+    [ Operation $ AddColumn "person" (Column "colorblind" SqlBool [NotNull])
+        (Just $ PersistBool False)
+    ]
   ]
   where
     migrateGender = RawOperation "Convert binary sex column into stringly gender column" $
@@ -132,15 +142,14 @@ manualMigration =
 testMigrations :: FilePath -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testMigrations dir backend getPool = testGroup "migrations"
   [ testMigration' "Migrate from empty" 0 []
-  , testMigration' "Migrate after CREATE city" 1 []
-  , testMigration' "Migrate with v1 person" 2 [insertPerson "David" []]
-  , testMigration' "Migrate from sex to gender" 3
+  , testMigration' "Migrate with v1 person" 1 [insertPerson "David" []]
+  , testMigration' "Migrate from sex to gender" 2
       [ insertPerson "David" [("sex", "0")]
       , insertPerson "Elizabeth" [("sex", "1")]
       , insertPerson "Foster" [("sex", "NULL")]
       ]
-  , testMigration' "Migrate with default colorblind" 7 [insertPerson "David" []]
-  , testMigration' "Migrations are idempotent" 8 [insertPerson "David" [("colorblind", "TRUE")]]
+  , testMigration' "Migrate with default colorblind" 4 [insertPerson "David" []]
+  , testMigration' "Migrations are idempotent" 5 [insertPerson "David" [("colorblind", "TRUE")]]
   ]
   where
     testMigration' = testMigration dir backend getPool
@@ -152,9 +161,10 @@ testMigrations dir backend getPool = testGroup "migrations"
           []
 
 -- | Run a test where:
---    * the first N operations have been migrated
+--    * the first N migration paths have been migrated (in the `manualMigration` list, NOT the
+--      version number)
 --    * the given query is run to populate the database
---    * the remaining operations are migrated
+--    * the remaining migration paths are migrated
 --    * insert some data into the database
 --    * output "SELECT * FROM person" to goldens file
 --    * clean up database
@@ -202,9 +212,9 @@ testMigration dir backend getPool name n populateDb = goldenVsString dir name $ 
   where
     setupMigration = take n manualMigration
     cleanup pool = runSql pool $ do
-      rawExecute "DROP TABLE persistent_migration" []
-      rawExecute "DROP TABLE person" []
-      rawExecute "DROP TABLE city" []
+      rawExecute "DROP TABLE IF EXISTS persistent_migration" []
+      rawExecute "DROP TABLE IF EXISTS person" []
+      rawExecute "DROP TABLE IF EXISTS city" []
 
 -- | Display a Person as a YAML object.
 showPersons :: [Person] -> ByteString

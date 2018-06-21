@@ -58,25 +58,30 @@ migrateHeight = RawOperation "Separate height into height_feet, height_inches" $
 
 migration :: Migration
 migration =
-  -- first commit
-  [ Operation (0 ~> 1) $ createPerson
+  -- first migration path should create all the tables
+  [ 0 ~> 1 := [Operation createPerson]
 
-  -- second commit
-  , Operation (1 ~> 2) $ DropColumn ("person", "alive")
-  , Operation (0 ~> 2) $ createPerson{ctSchema = filter ((/= "alive") . colName) $ ctSchema createPerson}
-    -- Can define shorter paths for equivalent operations; version 2 should result in the same schema
-    -- regardless of the path taken to get there.
+  -- can define shorter migration paths for equivalent operations; version 2, in this case, should result
+  -- in the same schema, regardless of the path taken to get there.
+  , 1 ~> 2 := [Operation $ DropColumn ("person", "alive")]
+  , 0 ~> 2 :=
+    [ Operation $ createPerson{ctSchema = filter ((/= "alive") . colName) $ ctSchema createPerson}
+    ]
 
-  -- second commit
-  , Operation (2 ~> 3) $ AddColumn "person" (Column "gender" SqlString []) Nothing
-  , Operation (3 ~> 4) $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just $ PersistInt64 0)
-    -- Non-null column needs a default for existing rows
+  -- example for adding columns
+  , 2 ~> 3 :=
+    [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
+      -- Adding a non-null column needs a default for existing rows.
+    , Operation $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just $ PersistInt64 0)
+    ]
 
-  -- third commit
-  , Operation (5 ~> 6) $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just $ PersistInt64 0)
-  , Operation (6 ~> 7) $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just $ PersistInt64 0)
-  , Operation (7 ~> 8) $ migrateHeight
-  , Operation (8 ~> 9) $ DropColumn ("person", "height")
+  -- example for more complex migrations; here, we split up the height field into feet and inches fields
+  , 3 ~> 4 :=
+    [ Operation $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just $ PersistInt64 0)
+    , Operation $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just $ PersistInt64 0)
+    , Operation migrateHeight
+    , Operation $ DropColumn ("person", "height")
+    ]
   ]
 ```
 

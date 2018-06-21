@@ -15,15 +15,15 @@ import Test.Utils.QuickCheck (Identifier(..), mapSome)
 -- | Run tests related to migration validaton.
 testProperties :: TestTree
 testProperties = testGroup "properties"
-  [ testProperty "Valid migration" $ forAll arbitrary isValidMigrationPath
+  [ testProperty "Valid migration" $ forAll arbitrary isValidOperationPaths
   , testProperty "Invalid decreasing migration" $
-      forAll arbitrary $ \(MigrationPath opPaths) -> do
+      forAll arbitrary $ \(OperationPaths opPaths) -> do
         opPaths' <- mapSome (\(a, b) -> (b, a)) opPaths
-        return . not . isValidMigrationPath $ MigrationPath opPaths'
+        return . not . isValidOperationPaths $ OperationPaths opPaths'
   , testProperty "Invalid duplicate operation path" $
-      forAll arbitrary $ \(MigrationPath opPaths) -> do
+      forAll arbitrary $ \(OperationPaths opPaths) -> do
         opPaths' <- mapSomeDupl opPaths
-        return . not . isValidMigrationPath $ MigrationPath opPaths'
+        return . not . isValidOperationPaths $ OperationPaths opPaths'
   , testProperty "Duplicate ColumnProps in CreateTable" $ do
       colsMaybeProps <- listOf arbitrary
       colsWithProps <- listOf1 (arbitrary `suchThat` (not . null . colProps))
@@ -62,26 +62,26 @@ testProperties = testGroup "properties"
         return . not . isValidOperation $ AddColumn{..}
   ]
 
-newtype MigrationPath = MigrationPath { getOpPaths :: [OperationPath] }
+newtype OperationPaths = OperationPaths { getOpPaths :: [OperationPath] }
   deriving (Show)
 
-instance Arbitrary MigrationPath where
+instance Arbitrary OperationPaths where
   arbitrary = do
     Positive maxVersion <- arbitrary
     let versions = [0..maxVersion]
         opPaths = zip versions $ tail versions
     -- order should not matter
-    MigrationPath <$> shuffle opPaths
+    OperationPaths <$> shuffle opPaths
 
 -- | Validate an Operation.
 isValidOperation :: Migrateable op => op -> Bool
 isValidOperation = isRight . validateOperation
 
 -- | Validate OperationPaths in a Migration.
-isValidMigrationPath :: MigrationPath -> Bool
-isValidMigrationPath = isRight . validateMigration . map mkOperation . getOpPaths
+isValidOperationPaths :: OperationPaths -> Bool
+isValidOperationPaths = isRight . validateMigration . map mkOperation . getOpPaths
   where
-    mkOperation path = Operation path NoOp
+    mkOperation path = path := []
 
 -- | Duplicate some elements in the given list.
 mapSomeDupl :: [a] -> Gen [a]

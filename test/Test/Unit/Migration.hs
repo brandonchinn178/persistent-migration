@@ -16,8 +16,8 @@ import Test.Utils.Goldens (goldenVsText)
 testMigrations :: FilePath -> MigrateBackend -> TestTree
 testMigrations dir backend = testGroup "migrations"
   [ goldenMigration' "Basic migration" defaultDatabase
-      [ Operation (0 ~> 1) $
-          CreateTable
+      [ 0 ~> 1 :=
+        [ Operation $ CreateTable
             { name = "person"
             , schema =
                 [ Column "id" SqlInt32 []
@@ -31,27 +31,32 @@ testMigrations dir backend = testGroup "migrations"
                 , Unique "unique_name" ["name"]
                 ]
             }
-      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
-      , Operation (2 ~> 3) $ DropColumn ("person", "alive")
-      , Operation (3 ~> 4) $ DropTable "person"
+        ]
+      , 1 ~> 2 :=
+        [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
+        , Operation $ DropColumn ("person", "alive")
+        ]
+      , 2 ~> 3 :=
+        [ Operation $ DropTable "person"
+        ]
       ]
   , goldenMigration' "Partial migration" (withVersion 1)
-      [ Operation (0 ~> 1) $ CreateTable "person" [] []
-      , Operation (1 ~> 2) $ DropTable "person"
+      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
+      , 1 ~> 2 := [Operation $ DropTable "person"]
       ]
   , goldenMigration' "Complete migration" (withVersion 2)
-      [ Operation (0 ~> 1) $ CreateTable "person" [] []
-      , Operation (1 ~> 2) $ DropTable "person"
+      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
+      , 1 ~> 2 := [Operation $ DropTable "person"]
       ]
   , goldenMigration' "Migration with shorter path" defaultDatabase
-      [ Operation (0 ~> 1) $ CreateTable "person" [] []
-      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
-      , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
+      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
+      , 1 ~> 2 := [Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing]
+      , 0 ~> 2 := [Operation $ CreateTable "person" [Column "gender" SqlString []] []]
       ]
   , goldenMigration' "Partial migration avoids shorter path" (withVersion 1)
-      [ Operation (0 ~> 1) $ CreateTable "person" [] []
-      , Operation (1 ~> 2) $ AddColumn "person" (Column "gender" SqlString []) Nothing
-      , Operation (0 ~> 2) $ CreateTable "person" [Column "gender" SqlString []] []
+      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
+      , 1 ~> 2 := [Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing]
+      , 0 ~> 2 := [Operation $ CreateTable "person" [Column "gender" SqlString []] []]
       ]
   ]
   where
