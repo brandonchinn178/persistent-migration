@@ -30,10 +30,8 @@ module Database.Persist.Migration.Core
 import Control.Monad (unless, when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
-import Data.Data (Data)
 import Data.List (nub)
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Monoid ((<>))
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
@@ -42,7 +40,6 @@ import Database.Persist.Migration.Operation (Operation(..), Version)
 import Database.Persist.Migration.Operation.Class (Migrateable(..))
 import Database.Persist.Migration.Operation.Types
     (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
-import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
 import Database.Persist.Migration.Utils.Plan (getPath)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
