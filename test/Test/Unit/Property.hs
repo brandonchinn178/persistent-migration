@@ -6,7 +6,7 @@ module Test.Unit.Property (testProperties) where
 
 import Control.Applicative (liftA2)
 import Data.Either (isRight)
-import Database.Persist.Migration.Internal
+import Database.Persist.Migration
 import Test.QuickCheck
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
