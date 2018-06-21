@@ -36,7 +36,7 @@ import Database.Persist.Migration
     , RenameTable(..)
     , TableConstraint(..)
     )
-import qualified Database.Persist.Migration.Internal as Migration
+import qualified Database.Persist.Migration.Core as Migration
 import Database.Persist.Migration.Utils.Sql
     (quote, showValue, uncommas, uncommas')
 import Database.Persist.Sql (SqlPersistT, SqlType(..))
