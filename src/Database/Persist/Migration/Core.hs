@@ -6,7 +6,6 @@ Portability :  portable
 
 Defines a migration framework for the persistent library.
 -}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -15,7 +14,6 @@ Defines a migration framework for the persistent library.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Core

@@ -10,8 +10,8 @@ Defines `MigrateBackend`, the data constructor that each SQL backend will need t
 module Database.Persist.Migration.Backend (MigrateBackend(..)) where
 
 import Data.Text (Text)
-import Database.Persist.Sql (SqlPersistT)
 import Database.Persist.Migration.Operation.Types
+import Database.Persist.Sql (SqlPersistT)
 
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
