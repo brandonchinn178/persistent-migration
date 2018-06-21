@@ -8,45 +8,28 @@ Defines a migration framework for the persistent library.
 -}
 
 module Database.Persist.Migration
-  ( -- * Operation types
-    Version
-  , OperationPath
-  , (~>)
-  , Operation(..)
-  -- * Migration types
-  , Migration
-  , MigrateBackend(..)
-  , Migrateable(..)
-  -- * Migration functions
-  , MigrateSettings(..)
-  , defaultSettings
-  , hasMigration
+  ( hasMigration
   , checkMigration
-  -- * Core operations
-  , CreateTable(..)
-  , DropTable(..)
-  , RenameTable(..)
-  , AddConstraint(..)
-  , DropConstraint(..)
-  , AddColumn(..)
-  , DropColumn(..)
-  , RawOperation(..)
-  , NoOp(..)
-  -- * Auxiliary types
+  -- * Re-exports
+  , module Backend
+  , module Core
+  , module Operation
+  , module Operation.Class
+  , module Operation.Types
   , PersistValue(..)
   , SqlType(..)
-  , ColumnIdentifier
-  , dotted
-  , Column(..)
-  , ColumnProp(..)
-  , TableConstraint(..)
   ) where
 
 import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as Text
 import Database.Persist (PersistValue(..), SqlType(..))
-import Database.Persist.Migration.Internal
+import Database.Persist.Migration.Backend as Backend
+import Database.Persist.Migration.Core as Core hiding
+    (getMigration, runMigration)
+import Database.Persist.Migration.Operation as Operation
+import Database.Persist.Migration.Operation.Class as Operation.Class
+import Database.Persist.Migration.Operation.Types as Operation.Types
 import qualified Database.Persist.Sql as Persistent
 
 -- | True if the persistent library detects more migrations unaccounted for.

@@ -1,4 +1,4 @@
-import Database.Persist.Migration.Internal (MigrateBackend)
+import Database.Persist.Migration (MigrateBackend)
 import qualified Database.Persist.Migration.Postgres as Postgres
 import Test.Tasty
 import Test.Unit.Migration (testMigrations)

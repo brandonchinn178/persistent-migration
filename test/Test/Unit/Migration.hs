@@ -4,7 +4,8 @@ module Test.Unit.Migration (testMigrations) where
 
 import Control.Monad.Reader (runReaderT)
 import qualified Data.Text as Text
-import Database.Persist.Migration.Internal
+import Database.Persist.Migration
+import Database.Persist.Migration.Core (getMigration)
 import Database.Persist.Sql (SqlType(..))
 import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Unit.Utils.Backends
