@@ -14,7 +14,7 @@ import Data.Maybe (mapMaybe)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import qualified Data.Text as Text
-import Database.Persist.Migration.Internal
+import Database.Persist.Migration
 import Database.Persist.Sql
     (PersistValue(..), SqlBackend, SqlPersistT, SqlType(..), rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
