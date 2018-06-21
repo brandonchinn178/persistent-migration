@@ -249,7 +249,7 @@ instance Migrateable DropConstraint where
 data AddColumn = AddColumn
   { table      :: Text
   , column     :: Column
-  , colDefault :: Maybe Text
+  , colDefault :: Maybe PersistValue
     -- ^ The default for existing rows; required if the column is non-nullable
   } deriving (Show)
 

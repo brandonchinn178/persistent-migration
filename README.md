@@ -67,12 +67,12 @@ migration =
 
   -- second commit
   , Operation (2 ~> 3) $ AddColumn "person" (Column "gender" SqlString []) Nothing
-  , Operation (3 ~> 4) $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just "0")
+  , Operation (3 ~> 4) $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just $ PersistInt64 0)
     -- Non-null column needs a default for existing rows
 
   -- third commit
-  , Operation (5 ~> 6) $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just "0")
-  , Operation (6 ~> 7) $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just "0")
+  , Operation (5 ~> 6) $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just $ PersistInt64 0)
+  , Operation (6 ~> 7) $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just $ PersistInt64 0)
   , Operation (7 ~> 8) $ migrateHeight
   , Operation (8 ~> 9) $ DropColumn ("person", "height")
   ]

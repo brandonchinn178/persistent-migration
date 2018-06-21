@@ -111,7 +111,7 @@ manualMigration =
 
   -- add colorblind column, with everyone currently in the database being not colorblind
   , Operation (6 ~> 7) $
-      AddColumn "person" (Column "colorblind" SqlBool [NotNull]) (Just "FALSE")
+      AddColumn "person" (Column "colorblind" SqlBool [NotNull]) (Just $ PersistBool False)
   ]
   where
     migrateGender = RawOperation "Convert binary sex column into stringly gender column" $

@@ -37,7 +37,7 @@ import Database.Persist.Migration
     , TableConstraint(..)
     )
 import qualified Database.Persist.Migration.Internal as Migration
-import Database.Persist.Migration.Utils.Sql (quote, uncommas, uncommas')
+import Database.Persist.Migration.Utils.Sql (quote, showValue, uncommas, uncommas')
 import Database.Persist.Sql (SqlPersistT, SqlType(..))
 
 -- | Run a migration with the Postgres backend.
@@ -94,7 +94,7 @@ addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
     createQuery = alterTable <> "ADD COLUMN " <> showColumn column <> createDefault
     createDefault = case colDefault of
       Nothing -> ""
-      Just def -> " DEFAULT " <> def
+      Just def -> " DEFAULT " <> showValue def
     -- The ALTER query to drop the default (if colDefault was set)
     setJust v = fmap $ const v
     alterQuery =

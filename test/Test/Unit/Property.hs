@@ -49,9 +49,9 @@ testProperties = testGroup "properties"
   , testProperty "Duplicate ColumnProps in AddColumn" $
       forAll arbitrary $ \col@Column{colProps} -> do
         Identifier table <- arbitrary
-        colDefault <- arbitrary
         colProps' <- mapSomeDupl colProps
         let column = col{colProps = colProps'}
+            colDefault = Nothing
         return $ not (null colProps) ==> not (isValidOperation AddColumn{..})
   , testProperty "Non-null AddColumn without default" $
       forAll arbitrary $ \col@Column{colProps} -> do

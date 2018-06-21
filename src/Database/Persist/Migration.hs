@@ -33,6 +33,8 @@ module Database.Persist.Migration
   , RawOperation(..)
   , NoOp(..)
   -- * Auxiliary types
+  , PersistValue(..)
+  , SqlType(..)
   , ColumnIdentifier
   , dotted
   , Column(..)
@@ -43,6 +45,7 @@ module Database.Persist.Migration
 import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as Text
+import Database.Persist (PersistValue(..), SqlType(..))
 import Database.Persist.Migration.Internal
 import qualified Database.Persist.Sql as Persistent
 
