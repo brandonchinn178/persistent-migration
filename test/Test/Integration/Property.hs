@@ -102,7 +102,10 @@ testProperties backend getPool = testGroup "properties"
         else pick $ elements [Nothing, defaultVal]
 
       runSqlPool' $ runOperation' $ AddColumn (name table) col'{colName = newName} defaultVal'
-  -- , testProperty "Drop column" $ withCreateTable' $ const $ return ()
+  , testProperty "Drop column" $ withCreateTable' $ \(table, _) -> do
+      let cols = map colName $ schema table
+      col <- pick $ elements cols
+      runSqlPool' $ runOperation' $ DropColumn (name table, col)
   ]
   where
     withCreateTable' :: PseudoBool a => ((CreateTable, [CreateTable]) -> PropertyM IO a) -> Property
