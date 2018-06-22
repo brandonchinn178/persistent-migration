@@ -16,14 +16,14 @@ import Data.Pool (Pool)
 import qualified Data.Text as Text
 import Database.Persist.Migration
 import Database.Persist.Sql
-    (PersistValue(..), SqlBackend, SqlPersistT, SqlType(..), rawExecute)
+    (SqlBackend, SqlPersistT, rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run, stop)
 import Test.QuickCheck.Property (rejected)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-import Test.Utils.QuickCheck (Identifier(..))
+import Test.Utils.QuickCheck (Identifier(..), genPersistValue)
 
 -- | A test suite for testing migration properties.
 testProperties :: MigrateBackend -> IO (Pool SqlBackend) -> TestTree
@@ -86,18 +86,7 @@ testProperties backend getPool = testGroup "properties"
               return $ col{colProps = References (fkTable, "id") : props}
 
       -- pick a default value according to nullability and sqltype
-      defaultVal <- fmap Just $ pick $ case colType col of
-        SqlString -> PersistText <$> arbitrary
-        SqlInt32 -> PersistInt64 <$> choose (-2147483648, 2147483647)
-        SqlInt64 -> PersistInt64 <$> choose (-2147483648, 2147483647)
-        SqlReal -> PersistDouble <$> arbitrary
-        SqlNumeric _ _ -> PersistRational <$> arbitrary
-        SqlBool -> PersistBool <$> arbitrary
-        SqlDay -> PersistDay <$> arbitrary
-        SqlTime -> PersistTimeOfDay <$> arbitrary
-        SqlDayTime -> PersistUTCTime <$> arbitrary
-        SqlBlob -> PersistByteString <$> arbitrary
-        SqlOther _ -> fail "SqlOther not supported"
+      defaultVal <- fmap Just $ pick $ genPersistValue $ colType col
       defaultVal' <- if NotNull `elem` colProps col
         then return defaultVal
         else pick $ elements [Nothing, defaultVal]

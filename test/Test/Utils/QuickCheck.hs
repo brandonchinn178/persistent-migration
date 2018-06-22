@@ -1,9 +1,11 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Test.Utils.QuickCheck
   ( Identifier(..)
+  , genPersistValue
   -- * Utilities
   , DistinctList(..)
   , mapSome
@@ -22,8 +24,8 @@ import Data.Time.Clock (UTCTime(..), secondsToDiffTime)
 import Data.Time.LocalTime (TimeOfDay(..))
 import Database.Persist.Migration
     (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
-import Database.Persist.Sql (SqlType(..))
-import Test.QuickCheck
+import Database.Persist.Sql (PersistValue(..), SqlType(..))
+import Test.QuickCheck hiding (scale)
 
 instance Arbitrary CreateTable where
   arbitrary = do
@@ -121,6 +123,24 @@ instance Arbitrary SqlType where
       , SqlDayTime
       , SqlBlob
       ]
+
+-- | Generate an arbitrary PersistValue for the given SqlType.
+genPersistValue :: SqlType -> Gen PersistValue
+genPersistValue = \case
+  SqlString -> PersistText <$> arbitrary
+  SqlInt32 -> PersistInt64 <$> choose (-2147483648, 2147483647)
+  SqlInt64 -> PersistInt64 <$> choose (-2147483648, 2147483647)
+  SqlReal -> PersistDouble <$> arbitrary
+  SqlNumeric precision scale -> do
+    v <- choose (0, 1) :: Gen Double
+    let v' = truncate (v * (10 ^ precision)) :: Integer
+    return . PersistRational $ fromIntegral v' / (10 ^ scale)
+  SqlBool -> PersistBool <$> arbitrary
+  SqlDay -> PersistDay <$> arbitrary
+  SqlTime -> PersistTimeOfDay <$> arbitrary
+  SqlDayTime -> PersistUTCTime <$> arbitrary
+  SqlBlob -> PersistByteString <$> arbitrary
+  SqlOther _ -> fail "SqlOther not supported"
 
 {- Utilities -}
 
