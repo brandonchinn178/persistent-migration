@@ -34,7 +34,7 @@ import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
 import Database.Persist.Migration.Backend (MigrateBackend(..))
 import Database.Persist.Migration.Operation
-    (Migration, MigrationPath(..), opPath, Operation(..), Version)
+    (Migration, MigrationPath(..), Operation(..), Version, opPath)
 import Database.Persist.Migration.Operation.Class (Migrateable(..))
 import Database.Persist.Migration.Operation.Types
     (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
