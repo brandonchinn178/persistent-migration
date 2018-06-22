@@ -1,4 +1,4 @@
-CREATE TABLE "person"("id" INT4,"name" VARCHAR NOT NULL,"age" INT4 NOT NULL,"alive" BOOLEAN NOT NULL,"hometown" INT8 REFERENCES "cities"("id"),PRIMARY KEY ("id"),CONSTRAINT "unique_name" UNIQUE ("name"))
+CREATE TABLE IF NOT EXISTS "person"("id" INT4,"name" VARCHAR NOT NULL,"age" INT4 NOT NULL,"alive" BOOLEAN NOT NULL,"hometown" INT8 REFERENCES "cities"("id"),PRIMARY KEY ("id"),CONSTRAINT "unique_name" UNIQUE ("name"))
 ALTER TABLE "person" ADD COLUMN "gender" VARCHAR
 ALTER TABLE "person" DROP COLUMN "alive"
 DROP TABLE IF EXISTS "person"

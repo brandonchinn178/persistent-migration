@@ -47,7 +47,7 @@ import Database.Persist.Types (SqlType(..))
 getCurrVersion :: MonadIO m => MigrateBackend -> SqlPersistT m (Maybe Version)
 getCurrVersion backend = do
   -- create the persistent_migration table if it doesn't already exist
-  mapReaderT liftIO (createTable backend True migrationSchema) >>= rawExecute'
+  mapReaderT liftIO (createTable backend migrationSchema) >>= rawExecute'
   extractVersion <$> rawSql queryVersion []
   where
     migrationSchema = CreateTable

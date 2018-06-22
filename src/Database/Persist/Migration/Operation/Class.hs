@@ -39,7 +39,7 @@ instance Migrateable CreateTable where
     when (any (`notElem` schemaCols) constraintCols) $
       Left $ "Table constraint references non-existent column: " ++ show ct
 
-  getMigrationText backend = createTable backend False
+  getMigrationText = createTable
 
 instance Migrateable DropTable where
   getMigrationText = dropTable

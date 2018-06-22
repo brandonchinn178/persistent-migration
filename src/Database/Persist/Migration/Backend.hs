@@ -15,8 +15,7 @@ import Database.Persist.Sql (SqlPersistT)
 
 -- | The backend to migrate with.
 data MigrateBackend = MigrateBackend
-  { createTable    :: Bool -> CreateTable -> SqlPersistT IO [Text]
-      -- ^ create a table (True = IF NOT EXISTS)
+  { createTable    :: CreateTable -> SqlPersistT IO [Text]
   , dropTable      :: DropTable -> SqlPersistT IO [Text]
   , renameTable    :: RenameTable -> SqlPersistT IO [Text]
   , addConstraint  :: AddConstraint -> SqlPersistT IO [Text]
