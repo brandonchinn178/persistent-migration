@@ -15,8 +15,7 @@ import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import qualified Data.Text as Text
 import Database.Persist.Migration
-import Database.Persist.Sql
-    (SqlBackend, SqlPersistT, rawExecute)
+import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
 import Test.Integration.Utils.RunSql (runSql)
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run, stop)
