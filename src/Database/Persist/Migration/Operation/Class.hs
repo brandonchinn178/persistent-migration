@@ -20,7 +20,7 @@ import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
 import Database.Persist.Sql (SqlPersistT)
 
 -- | The type class for data types that can be migrated.
-class Show op => Migrateable op where
+class Migrateable op where
   -- | Validate any checks for the given operation.
   validateOperation :: op -> Either String ()
   validateOperation _ = Right ()
@@ -66,6 +66,3 @@ instance Migrateable DropColumn where
 
 instance Migrateable RawOperation where
   getMigrationText _ RawOperation{rawOp} = rawOp
-
-instance Migrateable NoOp where
-  getMigrationText _ _ = return []

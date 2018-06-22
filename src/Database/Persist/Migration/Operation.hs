@@ -13,6 +13,9 @@ module Database.Persist.Migration.Operation
   ( Version
   , OperationPath
   , (~>)
+  , Migration
+  , MigrationPath(..)
+  , opPath
   , Operation(..)
   ) where
 
@@ -28,15 +31,19 @@ type Version = Int
 type OperationPath = (Version, Version)
 
 -- | An infix constructor for 'OperationPath'.
-(~>) :: Int -> Int -> OperationPath
+(~>) :: Version -> Version -> OperationPath
 (~>) = (,)
 
+type Migration = [MigrationPath]
+
+data MigrationPath = OperationPath := [Operation]
+  deriving (Show)
+
+-- | Get the OperationPath in the MigrationPath.
+opPath :: MigrationPath -> OperationPath
+opPath (path := _) = path
+
 -- | An operation that can be migrated.
-data Operation =
-  forall op. Migrateable op =>
-  Operation
-    { opPath :: OperationPath
-    , opOp   :: op
-    }
+data Operation  = forall op. (Show op, Migrateable op) => Operation op
 
 deriving instance Show Operation
