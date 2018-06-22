@@ -140,7 +140,7 @@ manualMigration =
 
 -- | A test suite for running migrations.
 testMigrations :: FilePath -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
-testMigrations dir backend getPool = testGroup "migrations"
+testMigrations dir backend getPool = testGroup "goldens"
   [ testMigration' "Migrate from empty" 0 []
   , testMigration' "Migrate with v1 person" 1 [insertPerson "David" []]
   , testMigration' "Migrate from sex to gender" 2

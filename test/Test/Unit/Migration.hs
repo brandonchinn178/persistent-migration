@@ -14,7 +14,7 @@ import Test.Utils.Goldens (goldenVsText)
 
 -- | Build a test suite for the given MigrateBackend.
 testMigrations :: FilePath -> MigrateBackend -> TestTree
-testMigrations dir backend = testGroup "migrations"
+testMigrations dir backend = testGroup "goldens"
   [ goldenMigration' "Basic migration" defaultDatabase
       [ 0 ~> 1 :=
         [ Operation $ CreateTable
