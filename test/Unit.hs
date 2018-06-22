@@ -9,7 +9,7 @@ unitDir :: String -> FilePath
 unitDir = goldenDir "unit"
 
 main :: IO ()
-main = defaultMain $ testGroup "persistent-migration-goldens"
+main = defaultMain $ testGroup "persistent-migration-unit"
   [ testBackend "postgresql" Postgres.backend
   , testProperties
   ]
