@@ -61,11 +61,10 @@ backend = MigrateBackend
   , dropColumn = dropColumn'
   }
 
-createTable' :: Bool -> CreateTable -> SqlPersistT IO [Text]
-createTable' ifNotExists CreateTable{..} = return
-  ["CREATE TABLE " <> ifNotExists' <> quote name <> "(" <> uncommas tableDefs <> ")"]
+createTable' :: CreateTable -> SqlPersistT IO [Text]
+createTable' CreateTable{..} = return
+  ["CREATE TABLE IF NOT EXISTS " <> quote name <> "(" <> uncommas tableDefs <> ")"]
   where
-    ifNotExists' = if ifNotExists then "IF NOT EXISTS " else ""
     tableDefs = map showColumn schema ++ map showTableConstraint constraints
 
 dropTable' :: DropTable -> SqlPersistT IO [Text]
