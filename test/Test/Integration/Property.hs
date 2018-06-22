@@ -86,10 +86,10 @@ testProperties backend getPool = testGroup "properties"
               return $ col{colProps = References (fkTable, "id") : props}
 
       -- pick a default value according to nullability and sqltype
-      defaultVal <- fmap Just $ pick $ genPersistValue $ colType col
+      defaultVal <- pick $ genPersistValue $ colType col
       defaultVal' <- if NotNull `elem` colProps col
-        then return defaultVal
-        else pick $ elements [Nothing, defaultVal]
+        then return $ Just defaultVal
+        else pick $ elements [Nothing, Just defaultVal]
 
       runSqlPool' $ runOperation' $ AddColumn (name table) col'{colName = newName} defaultVal'
   , testProperty "Drop column" $ withCreateTable $ \(table, _) -> do
