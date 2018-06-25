@@ -26,7 +26,7 @@ version.
 
 ```
 import Database.Persist.Migration
-import Database.Persist.Sql (PersistValue(..), rawExecute, rawSql)
+import Database.Persist.Sql (PersistValue(..), rawSql)
 
 createPerson :: CreateTable
 createPerson = CreateTable
@@ -46,11 +46,11 @@ createPerson = CreateTable
 
 migrateHeight :: RawOperation
 migrateHeight = RawOperation "Separate height into height_feet, height_inches" $
-  rawSql "SELECT id, height FROM person" [] >>= traverse_ migrateHeight'
+  map migrateHeight' <$> rawSql "SELECT id, height FROM person" []
   where
-    migrateHeight' (Single id', Single height) = do
+    migrateHeight' (Single id', Single height) =
       let (feet, inches) = quotRem height 12
-      rawExecute "UPDATE person SET height_feet = ?, height_inches = ? WHERE id = ?"
+      in interpolate "UPDATE person SET height_feet = ?, height_inches = ? WHERE id = ?"
         [ PersistInt64 feet
         , PersistInt64 inches
         , PersistInt64 id'

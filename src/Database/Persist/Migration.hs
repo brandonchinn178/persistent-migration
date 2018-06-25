@@ -16,6 +16,7 @@ module Database.Persist.Migration
   , module Operation
   , module Operation.Class
   , module Operation.Types
+  , module Utils.Sql
   , PersistValue(..)
   , SqlType(..)
   ) where
@@ -30,6 +31,7 @@ import Database.Persist.Migration.Core as Core hiding
 import Database.Persist.Migration.Operation as Operation
 import Database.Persist.Migration.Operation.Class as Operation.Class
 import Database.Persist.Migration.Operation.Types as Operation.Types
+import Database.Persist.Migration.Utils.Sql as Utils.Sql
 import qualified Database.Persist.Sql as Persistent
 
 -- | True if the persistent library detects more migrations unaccounted for.
