@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Integration.Utils.Backends
+module Utils.Backends
   ( withPostgres
   ) where
 

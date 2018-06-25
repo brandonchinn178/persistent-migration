@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Test.Utils.Goldens
+module Utils.Goldens
   ( goldenDir
   , goldenVsString
   , goldenVsText
