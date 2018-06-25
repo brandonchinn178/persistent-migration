@@ -57,7 +57,7 @@ _test-aliases:
 
 tests:
   persistent-migration-test:
-    main: Unit.hs
+    main: Main.hs
     source-dirs:
       - test/unit
       - test/utils
@@ -68,7 +68,7 @@ tests:
       mtl:
 
   persistent-migration-integration:
-    main: Integration.hs
+    main: Main.hs
     source-dirs:
       - test/integration
       - test/utils

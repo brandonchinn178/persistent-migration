@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a6b978f39b3035ae8033ecfb7d6f988d846f48d30f4e7007f15cafae87695544
+-- hash: 98bdd21fb8d627fb07f138bd8fd2d7a60d1857096b20aced0616f16baf14bff8
 
 name:           persistent-migration
 version:        0.0.2
@@ -63,8 +63,14 @@ library
 
 test-suite persistent-migration-integration
   type: exitcode-stdio-1.0
-  main-is: Integration.hs
+  main-is: Main.hs
   other-modules:
+      Migration
+      Property
+      Utils.Backends
+      Utils.RunSql
+      Utils.Goldens
+      Utils.QuickCheck
       Paths_persistent_migration
   hs-source-dirs:
       test/integration
@@ -98,8 +104,13 @@ test-suite persistent-migration-integration
 
 test-suite persistent-migration-test
   type: exitcode-stdio-1.0
-  main-is: Unit.hs
+  main-is: Main.hs
   other-modules:
+      Migration
+      Property
+      Utils.Backends
+      Utils.Goldens
+      Utils.QuickCheck
       Paths_persistent_migration
   hs-source-dirs:
       test/unit

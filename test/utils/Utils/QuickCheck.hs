@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Test.Utils.QuickCheck
+module Utils.QuickCheck
   ( Identifier(..)
   , genPersistValue
   -- * Utilities

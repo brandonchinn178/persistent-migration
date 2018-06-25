@@ -4,7 +4,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Integration.Property (testProperties) where
+module Property (testProperties) where
 
 import Control.Monad (unless, (>=>))
 import Control.Monad.Catch (SomeException(..), try)
@@ -16,13 +16,14 @@ import Data.Pool (Pool)
 import qualified Data.Text as Text
 import Database.Persist.Migration
 import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
-import Test.Integration.Utils.RunSql (runSql)
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run, stop)
 import Test.QuickCheck.Property (rejected)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-import Test.Utils.QuickCheck (Identifier(..), genPersistValue)
+
+import Utils.QuickCheck (Identifier(..), genPersistValue)
+import Utils.RunSql (runSql)
 
 -- | A test suite for testing migration properties.
 testProperties :: MigrateBackend -> IO (Pool SqlBackend) -> TestTree

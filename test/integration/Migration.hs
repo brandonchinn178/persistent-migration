@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-module Test.Integration.Migration (testMigrations) where
+module Migration (testMigrations) where
 
 import Control.Exception (finally)
 import Control.Monad (unless, when)
@@ -51,9 +51,10 @@ import Database.Persist.Sql
     )
 import Database.Persist.TH
     (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
-import Test.Integration.Utils.RunSql (runMigration, runSql)
 import Test.Tasty (TestTree, testGroup)
-import Test.Utils.Goldens (goldenVsString)
+
+import Utils.Goldens (goldenVsString)
+import Utils.RunSql (runMigration, runSql)
 
 {- Schema and migration -}
 

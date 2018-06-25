@@ -1,9 +1,10 @@
 import Database.Persist.Migration (MigrateBackend)
 import qualified Database.Persist.Migration.Postgres as Postgres
 import Test.Tasty
-import Test.Unit.Migration (testMigrations)
-import Test.Unit.Property (testProperties)
-import Test.Utils.Goldens (goldenDir)
+
+import Migration (testMigrations)
+import Property (testProperties)
+import Utils.Goldens (goldenDir)
 
 unitDir :: String -> FilePath
 unitDir = goldenDir "unit"
