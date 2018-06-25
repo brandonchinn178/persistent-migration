@@ -1,126 +1,138 @@
-name:                persistent-migration
-version:             0.0.2
-license:             BSD3
-license-file:        LICENSE.md
-author:              Brandon Chinn <brandonchinn178@gmail.com>
-maintainer:          Brandon Chinn <brandonchinn178@gmail.com>
-category:            Database
-synopsis:            Manual migrations for the persistent library
-description:         Manual migrations for the persistent library.
-build-type:          Simple
-cabal-version:       1.18
-extra-doc-files:     CHANGELOG.md, README.md
+-- This file has been generated from package.yaml by hpack version 0.28.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 92890c1d0079a6df5a47d8e9e50f7b15fce7a461e806d95a9bff48f9c9c36fa0
+
+name:           persistent-migration
+version:        0.0.2
+synopsis:       Manual migrations for the persistent library
+description:    Manual migrations for the persistent library.
+category:       Database
+homepage:       https://github.com/brandonchinn178/persistent-migration#readme
+bug-reports:    https://github.com/brandonchinn178/persistent-migration/issues
+author:         Brandon Chinn <brandonchinn178@gmail.com>
+maintainer:     Brandon Chinn <brandonchinn178@gmail.com>
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.18
+extra-doc-files:
+    CHANGELOG.md
+    README.md
 
 source-repository head
   type: git
-  location: https://github.com/brandonchinn178/persistent-migration.git
+  location: https://github.com/brandonchinn178/persistent-migration
 
 flag dev
-  description:        Turn on development settings.
-  manual:             True
-  default:            False
+  description: Turn on development settings.
+  manual: True
+  default: False
 
 library
-  hs-source-dirs:     src
-  default-language:   Haskell2010
-  exposed-modules:    Database.Persist.Migration
-                      Database.Persist.Migration.Backend
-                      Database.Persist.Migration.Core
-                      Database.Persist.Migration.Operation
-                      Database.Persist.Migration.Operation.Class
-                      Database.Persist.Migration.Operation.Types
-                      Database.Persist.Migration.Postgres
-                      Database.Persist.Migration.Utils.Data
-                      Database.Persist.Migration.Utils.Plan
-                      Database.Persist.Migration.Utils.Sql
-  build-depends:      base >= 4.7 && < 5
-                    , containers
-                    , fgl
-                    , persistent
-                    , mtl
-                    , text
-                    , time
-                    , unordered-containers
+  exposed-modules:
+      Database.Persist.Migration
+      Database.Persist.Migration.Backend
+      Database.Persist.Migration.Core
+      Database.Persist.Migration.Operation
+      Database.Persist.Migration.Operation.Class
+      Database.Persist.Migration.Operation.Types
+      Database.Persist.Migration.Postgres
+      Database.Persist.Migration.Utils.Data
+      Database.Persist.Migration.Utils.Plan
+      Database.Persist.Migration.Utils.Sql
+  other-modules:
+      Paths_persistent_migration
+  hs-source-dirs:
+      src
   ghc-options: -Wall
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , fgl
+    , mtl
+    , persistent
+    , text
+    , time
+    , unordered-containers
   if flag(dev)
-    ghc-options:      -Werror
-  if flag(dev) && impl(ghc >= 8.0)
-    ghc-options:      -Wcompat
-                      -Wincomplete-record-updates
-                      -Wincomplete-uni-patterns
-                      -Wnoncanonical-monad-instances
-                      -Wnoncanonical-monadfail-instances
-
-
-test-suite persistent-migration-test
-  type:               exitcode-stdio-1.0
-  hs-source-dirs:     test
-  default-language:   Haskell2010
-  main-is:            Unit.hs
-  other-modules:      Test.Unit.Migration
-                      Test.Unit.Property
-                      Test.Unit.Utils.Backends
-                      Test.Utils.Goldens
-                      Test.Utils.QuickCheck
-  build-depends: base
-               , bytestring
-               , conduit
-               , containers
-               , mtl
-               , persistent
-               , persistent-migration
-               , QuickCheck
-               , tasty
-               , tasty-golden
-               , tasty-quickcheck
-               , text
-               , time
-  ghc-options: -Wall
-  if flag(dev)
-    ghc-options:      -Werror
-  if flag(dev) && impl(ghc >= 8.0)
-    ghc-options:      -Wcompat
-                      -Wincomplete-record-updates
-                      -Wincomplete-uni-patterns
-                      -Wnoncanonical-monad-instances
-                      -Wnoncanonical-monadfail-instances
+    ghc-options: -Werror
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
+  default-language: Haskell2010
 
 test-suite persistent-migration-integration
-  type:               exitcode-stdio-1.0
-  hs-source-dirs:     test
-  default-language:   Haskell2010
-  main-is:            Integration.hs
-  other-modules:      Test.Integration.Migration
-                      Test.Integration.Property
-                      Test.Integration.Utils.Backends
-                      Test.Integration.Utils.RunSql
-                      Test.Utils.Goldens
-                      Test.Utils.QuickCheck
-  build-depends: base
-               , bytestring
-               , exceptions
-               , monad-logger
-               , mtl
-               , process
-               , persistent
-               , persistent-migration
-               , persistent-postgresql
-               , persistent-template
-               , resource-pool
-               , QuickCheck
-               , tasty
-               , tasty-golden
-               , tasty-quickcheck
-               , temporary
-               , text
-               , time
-               , yaml
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Migration
+      Property
+      Utils.Backends
+      Utils.RunSql
+      Utils.Goldens
+      Utils.QuickCheck
+      Paths_persistent_migration
+  hs-source-dirs:
+      test/integration
+      test/utils
   ghc-options: -Wall
+  build-depends:
+      QuickCheck
+    , base
+    , bytestring
+    , exceptions
+    , monad-logger
+    , mtl
+    , persistent
+    , persistent-migration
+    , persistent-postgresql
+    , persistent-template
+    , process
+    , resource-pool
+    , tasty
+    , tasty-golden
+    , tasty-quickcheck
+    , temporary
+    , text
+    , time
+    , yaml
   if flag(dev)
-    ghc-options:      -Werror
-  if flag(dev) && impl(ghc >= 8.0)
-    ghc-options:      -Wcompat
-                      -Wincomplete-record-updates
-                      -Wincomplete-uni-patterns
-                      -Wnoncanonical-monad-instances
-                      -Wnoncanonical-monadfail-instances
+    ghc-options: -Werror
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
+  default-language: Haskell2010
+
+test-suite persistent-migration-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Migration
+      Property
+      Utils.Backends
+      Utils.Goldens
+      Utils.QuickCheck
+      Paths_persistent_migration
+  hs-source-dirs:
+      test/unit
+      test/utils
+  ghc-options: -Wall
+  build-depends:
+      QuickCheck
+    , base
+    , bytestring
+    , conduit
+    , containers
+    , mtl
+    , persistent
+    , persistent-migration
+    , tasty
+    , tasty-golden
+    , tasty-quickcheck
+    , text
+    , time
+  if flag(dev)
+    ghc-options: -Werror
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
+  default-language: Haskell2010

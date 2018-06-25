@@ -1,0 +1,85 @@
+name:         persistent-migration
+version:      0.0.2
+license:      BSD3
+author:       Brandon Chinn <brandonchinn178@gmail.com>
+maintainer:   Brandon Chinn <brandonchinn178@gmail.com>
+category:     Database
+synopsis:     Manual migrations for the persistent library
+description:  Manual migrations for the persistent library.
+extra-doc-files:
+  - CHANGELOG.md
+  - README.md
+
+github: brandonchinn178/persistent-migration
+
+flags:
+  dev:
+    description:  Turn on development settings.
+    manual:       true
+    default:      false
+
+ghc-options: -Wall
+when:
+  - condition: flag(dev)
+    ghc-options: -Werror
+  - condition: impl(ghc >= 8.0)
+    ghc-options:
+      - -Wcompat
+      - -Wincomplete-record-updates
+      - -Wincomplete-uni-patterns
+      - -Wnoncanonical-monad-instances
+      - -Wnoncanonical-monadfail-instances
+
+library:
+  source-dirs: src
+  dependencies:
+    base: '>= 4.7 && < 5'
+    containers:
+    fgl:
+    persistent:
+    mtl:
+    text:
+    time:
+    unordered-containers:
+
+_test-aliases:
+  - &test-utils-deps
+    base:
+    bytestring:
+    persistent:
+    persistent-migration:
+    QuickCheck:
+    tasty:
+    tasty-golden:
+    tasty-quickcheck:
+    text:
+    time:
+
+tests:
+  persistent-migration-test:
+    main: Main.hs
+    source-dirs:
+      - test/unit
+      - test/utils
+    dependencies:
+      <<: *test-utils-deps
+      conduit:
+      containers:
+      mtl:
+
+  persistent-migration-integration:
+    main: Main.hs
+    source-dirs:
+      - test/integration
+      - test/utils
+    dependencies:
+      <<: *test-utils-deps
+      exceptions:
+      monad-logger:
+      mtl:
+      process:
+      persistent-postgresql:
+      persistent-template:
+      resource-pool:
+      temporary:
+      yaml:

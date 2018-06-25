@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Unit.Migration (testMigrations) where
+module Migration (testMigrations) where
 
 import Control.Monad.Reader (runReaderT)
 import qualified Data.Text as Text
@@ -8,9 +8,10 @@ import Database.Persist.Migration
 import Database.Persist.Migration.Core (getMigration)
 import Database.Persist.Sql (SqlType(..))
 import Test.Tasty (TestName, TestTree, testGroup)
-import Test.Unit.Utils.Backends
+
+import Utils.Backends
     (MockDatabase(..), defaultDatabase, setDatabase, withTestBackend)
-import Test.Utils.Goldens (goldenVsText)
+import Utils.Goldens (goldenVsText)
 
 -- | Build a test suite for the given MigrateBackend.
 testMigrations :: FilePath -> MigrateBackend -> TestTree

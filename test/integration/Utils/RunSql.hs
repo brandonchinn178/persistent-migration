@@ -1,4 +1,4 @@
-module Test.Integration.Utils.RunSql
+module Utils.RunSql
   ( runSql
   , runMigration
   ) where

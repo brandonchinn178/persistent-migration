@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Test.Unit.Property (testProperties) where
+module Property (testProperties) where
 
 import Control.Applicative (liftA2)
 import Data.Either (isRight)
@@ -10,7 +10,8 @@ import Database.Persist.Migration
 import Test.QuickCheck
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-import Test.Utils.QuickCheck (Identifier(..), mapSome)
+
+import Utils.QuickCheck (Identifier(..), mapSome)
 
 -- | Run tests related to migration validaton.
 testProperties :: TestTree
