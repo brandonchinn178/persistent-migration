@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 98bdd21fb8d627fb07f138bd8fd2d7a60d1857096b20aced0616f16baf14bff8
+-- hash: 92890c1d0079a6df5a47d8e9e50f7b15fce7a461e806d95a9bff48f9c9c36fa0
 
 name:           persistent-migration
 version:        0.0.2
@@ -14,6 +14,7 @@ bug-reports:    https://github.com/brandonchinn178/persistent-migration/issues
 author:         Brandon Chinn <brandonchinn178@gmail.com>
 maintainer:     Brandon Chinn <brandonchinn178@gmail.com>
 license:        BSD3
+license-file:   LICENSE
 build-type:     Simple
 cabal-version:  >= 1.18
 extra-doc-files:
