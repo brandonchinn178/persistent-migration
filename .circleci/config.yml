@@ -26,8 +26,8 @@ aliases:
       command: |
         FILES=(
           stack.yaml
+          package.yaml
           scripts/install-stack-deps.sh
-          persistent-migration.cabal
         )
         cat "${FILES[@]}" > cache-key.txt
   - &cache-key
