@@ -103,4 +103,4 @@ main = do
   checkMigration migrationDef
 ```
 
-For more examples, see `test/Integration/Migration.hs`.
+For more examples, see `test/integration/Migration.hs`.
