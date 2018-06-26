@@ -45,10 +45,13 @@ testProperties backend getPool = testGroup "properties"
           tableCols = map colName $ schema table
           uniqueCols = concatMap getUniqueCols $ constraints table
           nonUniqueCols = take 32 $ filter (`notElem` uniqueCols) tableCols
-      Identifier uniqueName <- pick arbitrary
-      let uniqueName' = Text.take 63 $ "unique_" <> uniqueName
-      runSqlPool' $
-        runOperation' $ AddConstraint (name table) $ Unique uniqueName' nonUniqueCols
+      if null nonUniqueCols
+        then return False
+        else do
+          let uniqueName = Text.take 63 $ "unique_" <> Text.intercalate "_" nonUniqueCols
+          runSqlPool' $
+            runOperation' $ AddConstraint (name table) $ Unique uniqueName nonUniqueCols
+          return True
   , testProperty "Drop UNIQUE constraint" $ withCreateTable $ \(table, _) -> do
       let getUniqueName = \case
             PrimaryKey _ -> Nothing
