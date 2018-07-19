@@ -34,7 +34,7 @@ instance Arbitrary CreateTable where
     -- get names of tables this table can have foreign keys towards
     DistinctList colNames <- arbitrary
     -- max out at 100 names
-    let colNames' = take 100 $ map unIdent colNames
+    let colNames' = take 100 $ map unColIdent colNames
 
     -- generate schema
     DistinctList tableNames <- arbitrary
@@ -65,7 +65,7 @@ instance Arbitrary CreateTable where
 -- Also given the set of table names that can be referenced by foreign keys.
 genColumn :: [Identifier] -> Gen Column
 genColumn tableNames = do
-  colName <- fmap unIdent arbitrary
+  colName <- fmap unColIdent arbitrary
 
   references <- if null tableNames
     then return []
@@ -98,14 +98,25 @@ instance Arbitrary Identifier where
   arbitrary = do
     first <- elements underletter
     rest <- listOf $ elements $ underletter ++ ['0'..'9']
-    let ident = first : rest
-    if ident == "id"
-      then arbitrary
-      else
-        -- identifiers max 63 characters long
-        return . Identifier . Text.pack . take 63 $ first : rest
+    return . Identifier . Text.pack . take 63 $ first : rest
     where
       underletter = '_':['a'..'z']
+
+newtype ColumnIdentifier = ColumnIdentifier { unColIdent :: Text }
+  deriving (Show,Eq)
+
+instance Arbitrary ColumnIdentifier where
+  arbitrary = do
+    Identifier ident <- arbitrary
+    if ident `elem` invalidIdents
+      then arbitrary
+      else return $ ColumnIdentifier ident
+    where
+      invalidIdents =
+        [ "id"
+        -- https://www.postgresql.org/docs/9.6/static/ddl-system-columns.html
+        , "oid", "tableoid", "xmin", "cmin", "xmax", "cmax", "ctid"
+        ]
 
 instance Arbitrary SqlType where
   arbitrary = do
