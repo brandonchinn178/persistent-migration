@@ -39,7 +39,7 @@ import Database.Persist.Migration
 import qualified Database.Persist.Migration.Core as Migration
 import Database.Persist.Migration.Utils.Sql
     (quote, showValue, uncommas, uncommas')
-import Database.Persist.Sql (SqlPersistT, SqlType(..))
+import Database.Persist.Sql (PersistValue, SqlPersistT, SqlType(..))
 
 -- | Run a migration with the Postgres backend.
 runMigration :: MigrateSettings -> Migration -> SqlPersistT IO ()
@@ -89,16 +89,20 @@ addColumn' :: AddColumn -> SqlPersistT IO [Text]
 addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
   where
     Column{..} = column
+    withoutDefault = column { colProps = filter (not . isDefault) colProps }
     alterTable = "ALTER TABLE " <> quote table <> " "
     -- The CREATE query with the default specified by AddColumn{colDefault}
-    createQuery = alterTable <> "ADD COLUMN " <> showColumn column <> createDefault
+    createQuery = alterTable <> "ADD COLUMN " <> showColumn withoutDefault <> createDefault
     createDefault = case colDefault of
       Nothing -> ""
       Just def -> " DEFAULT " <> showValue def
-    -- The ALTER query to drop the default (if colDefault was set)
-    setJust v = fmap $ const v
+    -- The ALTER query to drop/set the default (if colDefault was set)
     alterQuery =
-      setJust (alterTable <> "ALTER COLUMN " <> quote colName <> " DROP DEFAULT") colDefault
+      let action = case getDefault colProps of
+            Nothing -> "DROP DEFAULT"
+            Just v -> "SET DEFAULT " <> showValue v
+          alterQuery' = alterTable <> "ALTER COLUMN" <> quote colName <> " " <> action
+      in alterQuery' <$ colDefault
 
 dropColumn' :: DropColumn -> SqlPersistT IO [Text]
 dropColumn' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUMN " <> quote col]
@@ -106,6 +110,17 @@ dropColumn' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUM
     (tab, col) = column
 
 {- Helpers -}
+
+-- | True if the given ColumnProp sets a default.
+isDefault :: ColumnProp -> Bool
+isDefault (Default _) = True
+isDefault _ = False
+
+-- | Get the default value from the given ColumnProps.
+getDefault :: [ColumnProp] -> Maybe PersistValue
+getDefault [] = Nothing
+getDefault (Default v : _) = Just v
+getDefault (_:props) = getDefault props
 
 -- | Show a 'Column'.
 showColumn :: Column -> Text
@@ -143,6 +158,7 @@ showColumnProp = \case
   NotNull -> "NOT NULL"
   References (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
   AutoIncrement -> ""
+  Default v -> "DEFAULT " <> showValue v
 
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text

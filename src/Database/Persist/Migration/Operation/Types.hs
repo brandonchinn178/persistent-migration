@@ -12,6 +12,8 @@ Defines the data types that can be used in Operations.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Database.Persist.Migration.Operation.Types
   ( -- * Core operations
@@ -40,7 +42,7 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
-import Database.Persist.Sql (PersistValue, SqlPersistT)
+import Database.Persist.Sql (PersistValue(..), SqlPersistT)
 import Database.Persist.Types (SqlType)
 
 -- | An operation to create a table according to the specified schema.
@@ -126,10 +128,22 @@ validateColumn col@Column{..} = when (hasDuplicateConstrs colProps) $
 
 -- | A property for a 'Column'.
 data ColumnProp
-  = NotNull -- ^ Makes a column non-nullable (defaults to nullable)
-  | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
-  | AutoIncrement -- ^ Makes a column auto-incrementing
+  = NotNull
+    -- ^ Makes a column non-nullable (defaults to nullable)
+  | References ColumnIdentifier
+    -- ^ Mark this column as a foreign key to the given column
+  | AutoIncrement
+    -- ^ Makes a column auto-incrementing
+  | Default PersistValue
+    -- ^ Sets the default value for the column. Note that this doesn't matter when inserting
+    -- data via Haskell; this property only sets the schema in the SQL backend.
+    --
+    -- See 'AddColumn' for setting the default value for existing rows in a migration.
+    --
+    -- More info: https://www.yesodweb.com/book/persistent#persistent_attributes
   deriving (Show,Eq,Data)
+
+deriving instance Data PersistValue
 
 -- | Table constraints in a CREATE query.
 data TableConstraint

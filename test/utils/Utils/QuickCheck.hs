@@ -79,8 +79,11 @@ genColumn tableNames = do
 
   autoIncrement <- arbitrarySingleton 1 AutoIncrement
   notNull <- arbitrarySingleton 50 NotNull
+  colDefault <- case autoIncrement of
+    [] -> arbitrarySingleton 10 . Default =<< genPersistValue colType
+    _ -> return []
 
-  let colProps = notNull ++ autoIncrement ++ references
+  let colProps = notNull ++ autoIncrement ++ references ++ colDefault
 
   return Column{..}
   where
