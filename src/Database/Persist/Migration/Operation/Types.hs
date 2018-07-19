@@ -128,10 +128,19 @@ validateColumn col@Column{..} = when (hasDuplicateConstrs colProps) $
 
 -- | A property for a 'Column'.
 data ColumnProp
-  = NotNull -- ^ Makes a column non-nullable (defaults to nullable)
-  | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
-  | AutoIncrement -- ^ Makes a column auto-incrementing
-  | Default PersistValue -- ^ Sets the default value for the column
+  = NotNull
+    -- ^ Makes a column non-nullable (defaults to nullable)
+  | References ColumnIdentifier
+    -- ^ Mark this column as a foreign key to the given column
+  | AutoIncrement
+    -- ^ Makes a column auto-incrementing
+  | Default PersistValue
+    -- ^ Sets the default value for the column. Note that this doesn't matter when inserting
+    -- data via Haskell; this property only sets the schema in the SQL backend.
+    --
+    -- See 'AddColumn' for setting the default value for existing rows in a migration.
+    --
+    -- More info: https://www.yesodweb.com/book/persistent#persistent_attributes
   deriving (Show,Eq,Data)
 
 deriving instance Data PersistValue
