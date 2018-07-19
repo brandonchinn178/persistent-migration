@@ -48,7 +48,8 @@ instance Arbitrary CreateTable where
     uniqueCols <- sublistOf $ map colName cols'
     let mkUnique names =
           -- constraint name can be max 63 characters
-          let constraintName = Text.take 63 $ "unique_" <> Text.intercalate "_" names
+          let namespace = Text.take 10 name
+              constraintName = Text.take 63 $ "unique_" <> Text.intercalate "_" (namespace:names)
           in Unique constraintName names
         -- unique constraints should not have more than 32 columns
         max32 l = if length l > 32
