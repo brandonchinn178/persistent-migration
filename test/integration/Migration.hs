@@ -143,14 +143,20 @@ manualMigration =
 testMigrations :: FilePath -> MigrateBackend -> IO (Pool SqlBackend) -> TestTree
 testMigrations dir backend getPool = testGroup "goldens"
   [ testMigration' "Migrate from empty" 0 []
-  , testMigration' "Migrate with v1 person" 1 [insertPerson "David" []]
+  , testMigration' "Migrate with v1 person" 1
+      [ insertPerson "David" []
+      ]
   , testMigration' "Migrate from sex to gender" 2
       [ insertPerson "David" [("sex", "0")]
       , insertPerson "Elizabeth" [("sex", "1")]
       , insertPerson "Foster" [("sex", "NULL")]
       ]
-  , testMigration' "Migrate with default colorblind" 4 [insertPerson "David" []]
-  , testMigration' "Migrations are idempotent" 5 [insertPerson "David" [("colorblind", "TRUE")]]
+  , testMigration' "Migrate with default colorblind" 4
+      [ insertPerson "David" []
+      ]
+  , testMigration' "Migrations are idempotent" (length manualMigration)
+      [ insertPerson "David" [("colorblind", "TRUE")]
+      ]
   ]
   where
     testMigration' = testMigration dir backend getPool
