@@ -143,6 +143,7 @@ showColumnProp = \case
   NotNull -> "NOT NULL"
   References (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
   AutoIncrement -> ""
+  Default v -> "DEFAULT " <> showValue v
 
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text

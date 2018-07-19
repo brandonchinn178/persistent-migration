@@ -12,6 +12,8 @@ Defines the data types that can be used in Operations.
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Database.Persist.Migration.Operation.Types
   ( -- * Core operations
@@ -40,7 +42,7 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
-import Database.Persist.Sql (PersistValue, SqlPersistT)
+import Database.Persist.Sql (PersistValue(..), SqlPersistT)
 import Database.Persist.Types (SqlType)
 
 -- | An operation to create a table according to the specified schema.
@@ -129,7 +131,10 @@ data ColumnProp
   = NotNull -- ^ Makes a column non-nullable (defaults to nullable)
   | References ColumnIdentifier -- ^ Mark this column as a foreign key to the given column
   | AutoIncrement -- ^ Makes a column auto-incrementing
+  | Default PersistValue -- ^ Sets the default value for the column
   deriving (Show,Eq,Data)
+
+deriving instance Data PersistValue
 
 -- | Table constraints in a CREATE query.
 data TableConstraint
