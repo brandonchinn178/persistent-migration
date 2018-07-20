@@ -22,7 +22,7 @@ import Test.QuickCheck.Property (rejected)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
-import Utils.QuickCheck (Identifier(..), genPersistValue)
+import Utils.QuickCheck (ColumnIdentifier(..), Identifier(..), genPersistValue)
 import Utils.RunSql (runSql)
 
 -- | A test suite for testing migration properties.
@@ -95,6 +95,11 @@ testProperties backend getPool = testGroup "properties"
         else pick $ elements [Nothing, Just defaultVal]
 
       runSqlPool' $ runOperation' $ AddColumn (name table) col'{colName = newName} defaultVal'
+  , testProperty "Rename column" $ withCreateTable $ \(table, _) -> do
+      let cols = map colName $ schema table
+      col <- pick $ elements cols
+      ColumnIdentifier newName <- pick arbitrary
+      runSqlPool' $ runOperation' $ RenameColumn (name table) col newName
   , testProperty "Drop column" $ withCreateTable $ \(table, _) -> do
       let cols = map colName $ schema table
       col <- pick $ elements cols
