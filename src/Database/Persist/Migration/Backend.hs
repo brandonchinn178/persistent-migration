@@ -21,5 +21,6 @@ data MigrateBackend = MigrateBackend
   , addConstraint  :: AddConstraint -> SqlPersistT IO [Text]
   , dropConstraint :: DropConstraint -> SqlPersistT IO [Text]
   , addColumn      :: AddColumn -> SqlPersistT IO [Text]
+  , renameColumn   :: RenameColumn -> SqlPersistT IO [Text]
   , dropColumn     :: DropColumn -> SqlPersistT IO [Text]
   }

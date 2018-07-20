@@ -23,6 +23,7 @@ module Database.Persist.Migration.Operation.Types
   , AddConstraint(..)
   , DropConstraint(..)
   , AddColumn(..)
+  , RenameColumn(..)
   , DropColumn(..)
     -- * Special operations
   , RawOperation(..)
@@ -82,6 +83,13 @@ data AddColumn = AddColumn
   , column     :: Column
   , colDefault :: Maybe PersistValue
     -- ^ The default for existing rows; required if the column is non-nullable
+  } deriving (Show)
+
+-- | An operation to rename the given column.
+data RenameColumn = RenameColumn
+  { table :: Text
+  , from  :: Text
+  , to    :: Text
   } deriving (Show)
 
 -- | An operation to drop the given column to an existing table.

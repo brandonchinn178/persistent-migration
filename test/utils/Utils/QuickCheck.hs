@@ -4,7 +4,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Utils.QuickCheck
-  ( Identifier(..)
+  ( ColumnIdentifier(..)
+  , Identifier(..)
   , genPersistValue
   -- * Utilities
   , DistinctList(..)

@@ -22,20 +22,6 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration
-    ( AddColumn(..)
-    , AddConstraint(..)
-    , Column(..)
-    , ColumnProp(..)
-    , CreateTable(..)
-    , DropColumn(..)
-    , DropConstraint(..)
-    , DropTable(..)
-    , MigrateBackend(..)
-    , MigrateSettings
-    , Migration
-    , RenameTable(..)
-    , TableConstraint(..)
-    )
 import qualified Database.Persist.Migration.Core as Migration
 import Database.Persist.Migration.Utils.Sql
     (quote, showValue, uncommas, uncommas')
@@ -58,6 +44,7 @@ backend = MigrateBackend
   , addConstraint = addConstraint'
   , dropConstraint = dropConstraint'
   , addColumn = addColumn'
+  , renameColumn = renameColumn'
   , dropColumn = dropColumn'
   }
 
@@ -103,6 +90,10 @@ addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
             Just v -> "SET DEFAULT " <> showValue v
           alterQuery' = alterTable <> "ALTER COLUMN" <> quote colName <> " " <> action
       in alterQuery' <$ colDefault
+
+renameColumn' :: RenameColumn -> SqlPersistT IO [Text]
+renameColumn' RenameColumn{..} = return . pure $ Text.unwords
+  ["ALTER TABLE", quote table, "RENAME COLUMN", quote from, "TO", quote to]
 
 dropColumn' :: DropColumn -> SqlPersistT IO [Text]
 dropColumn' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUMN " <> quote col]
