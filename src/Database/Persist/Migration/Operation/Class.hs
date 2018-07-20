@@ -61,6 +61,9 @@ instance Migrateable AddColumn where
 
   getMigrationText = addColumn
 
+instance Migrateable RenameColumn where
+  getMigrationText = renameColumn
+
 instance Migrateable DropColumn where
   getMigrationText = dropColumn
 
