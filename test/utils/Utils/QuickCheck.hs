@@ -145,17 +145,21 @@ genPersistValue = \case
   SqlString -> PersistText <$> arbitrary
   SqlInt32 -> PersistInt64 <$> choose (-2147483648, 2147483647)
   SqlInt64 -> PersistInt64 <$> choose (-2147483648, 2147483647)
-  SqlReal -> PersistDouble <$> arbitrary
+  SqlReal -> PersistDouble . cleanDouble  <$> arbitrary
   SqlNumeric precision scale -> do
     v <- choose (0, 1) :: Gen Double
     let v' = truncate (v * (10 ^ precision)) :: Integer
-    return . PersistRational $ fromIntegral v' / (10 ^ scale)
+        x = fromIntegral v' / (10 ^ scale)
+    return . PersistRational . toRational . cleanDouble $ x
   SqlBool -> PersistBool <$> arbitrary
   SqlDay -> PersistDay <$> arbitrary
   SqlTime -> PersistTimeOfDay <$> arbitrary
   SqlDayTime -> PersistUTCTime <$> arbitrary
   SqlBlob -> PersistByteString <$> arbitrary
   SqlOther _ -> fail "SqlOther not supported"
+  where
+    cleanDouble :: Double -> Double
+    cleanDouble x = if isInfinite x || isNaN x then 0 else x
 
 {- Utilities -}
 
