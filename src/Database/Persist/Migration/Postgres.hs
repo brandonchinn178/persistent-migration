@@ -18,7 +18,6 @@ module Database.Persist.Migration.Postgres
   ) where
 
 import Data.Maybe (maybeToList)
-import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration
@@ -58,8 +57,9 @@ getMigrationText' AddConstraint{..} = fromWords
   ["ALTER TABLE", quote table, statement]
   where
     statement = case constraint of
-      PrimaryKey cols -> "ADD PRIMARY KEY (" <> uncommas' cols <> ")"
-      Unique label cols -> "ADD CONSTRAINT " <> quote label <> " UNIQUE (" <> uncommas' cols <> ")"
+      PrimaryKey cols -> Text.unwords ["ADD PRIMARY KEY (", uncommas' cols, ")"]
+      Unique label cols -> Text.unwords
+        ["ADD CONSTRAINT", quote label, "UNIQUE (", uncommas' cols, ")"]
 
 getMigrationText' DropConstraint{..} = fromWords
   ["ALTER TABLE", quote table, "DROP CONSTRAINT", constraintName]
@@ -85,7 +85,8 @@ getMigrationText' AddColumn{..} = return $ createQuery : maybeToList alterQuery
 getMigrationText' RenameColumn{..} = fromWords
   ["ALTER TABLE", quote table, "RENAME COLUMN", quote from, "TO", quote to]
 
-getMigrationText' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUMN " <> quote col]
+getMigrationText' DropColumn{..} = fromWords
+  ["ALTER TABLE", quote tab, "DROP COLUMN", quote col]
   where
     (tab, col) = columnId
 
@@ -126,7 +127,7 @@ showSqlType = \case
   SqlInt32 -> "INT4"
   SqlInt64 -> "INT8"
   SqlReal -> "DOUBLE PRECISION"
-  SqlNumeric s prec -> "NUMERIC(" <> showT s <> "," <> showT prec <> ")"
+  SqlNumeric s prec -> Text.concat ["NUMERIC(", showT s, ",", showT prec, ")"]
   SqlDay -> "DATE"
   SqlTime -> "TIME"
   SqlDayTime -> "TIMESTAMP WITH TIME ZONE"
@@ -141,12 +142,12 @@ showSqlType = \case
 showColumnProp :: ColumnProp -> Text
 showColumnProp = \case
   NotNull -> "NOT NULL"
-  References (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
+  References (tab, col) -> Text.unwords ["REFERENCES", quote tab, "(", quote col, ")"]
   AutoIncrement -> ""
-  Default v -> "DEFAULT " <> showValue v
+  Default v -> Text.unwords ["DEFAULT", showValue v]
 
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text
 showTableConstraint = \case
-  PrimaryKey cols -> "PRIMARY KEY (" <> uncommas' cols <> ")"
-  Unique name cols -> "CONSTRAINT " <> quote name <> " UNIQUE (" <> uncommas' cols <> ")"
+  PrimaryKey cols -> Text.unwords ["PRIMARY KEY (", uncommas' cols, ")"]
+  Unique name cols -> Text.unwords ["CONSTRAINT", quote name, "UNIQUE (", uncommas' cols, ")"]
