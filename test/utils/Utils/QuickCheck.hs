@@ -4,7 +4,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Utils.QuickCheck
-  ( ColumnIdentifier(..)
+  ( CreateTable'(..)
+  , toOperation
+  , ColumnIdentifier(..)
   , Identifier(..)
   , genPersistValue
   -- * Utilities
@@ -24,13 +26,24 @@ import Data.Time.Calendar (Day, fromGregorian)
 import Data.Time.Clock (UTCTime(..), secondsToDiffTime)
 import Data.Time.LocalTime (TimeOfDay(..))
 import Database.Persist.Migration
-    (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
+    (Column(..), ColumnProp(..), Operation(..), TableConstraint(..))
 import Database.Persist.Sql (PersistValue(..), SqlType(..))
 import Test.QuickCheck hiding (scale)
 
-instance Arbitrary CreateTable where
+-- | A duplicate of the CreateTable constructor for testing.
+data CreateTable' = CreateTable'
+  { ctName        :: Text
+  , ctSchema      :: [Column]
+  , ctConstraints :: [TableConstraint]
+  } deriving (Show)
+
+toOperation :: CreateTable' -> Operation
+toOperation CreateTable'{..} = CreateTable ctName ctSchema ctConstraints
+
+instance Arbitrary CreateTable' where
   arbitrary = do
-    Identifier name <- arbitrary
+    name <- arbitrary
+    let Identifier ctName = name
 
     -- get names of tables this table can have foreign keys towards
     DistinctList colNames <- arbitrary
@@ -39,17 +52,17 @@ instance Arbitrary CreateTable where
 
     -- generate schema
     DistinctList tableNames <- arbitrary
-    let tableNames' = filter (/= Identifier name) tableNames
+    let tableNames' = filter (/= name) tableNames
     cols <- vectorOf (length colNames') $ genColumn tableNames'
     let idCol = Column "id" SqlInt32 [NotNull, AutoIncrement]
         cols' = map (\(colName', col) -> col{colName = colName'}) $ zip colNames' cols
-        schema = idCol : cols'
+        ctSchema = idCol : cols'
 
     -- all of the columns that will be unique
     uniqueCols <- sublistOf $ map colName cols'
     let mkUnique names =
           -- constraint name can be max 63 characters
-          let namespace = Text.take 10 name
+          let namespace = Text.take 10 ctName
               constraintName = Text.take 63 $ "unique_" <> Text.intercalate "_" (namespace:names)
           in Unique constraintName names
         -- unique constraints should not have more than 32 columns
@@ -58,9 +71,9 @@ instance Arbitrary CreateTable where
           else [l]
     uniqueConstraints <- map mkUnique . concatMap max32 <$> group uniqueCols
 
-    let constraints = PrimaryKey ["id"] : uniqueConstraints
+    let ctConstraints = PrimaryKey ["id"] : uniqueConstraints
 
-    return CreateTable{..}
+    return $ CreateTable'{..}
 
 -- | Generate an arbitrary Column with a possibly pre-determined name.
 --

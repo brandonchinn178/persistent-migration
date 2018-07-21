@@ -11,7 +11,7 @@ import Test.QuickCheck
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
-import Utils.QuickCheck (Identifier(..), mapSome)
+import Utils.QuickCheck (CreateTable'(..), Identifier(..), mapSome, toOperation)
 
 -- | Run tests related to migration validaton.
 testProperties :: TestTree
@@ -35,18 +35,19 @@ testProperties = testGroup "properties"
       let ct = CreateTable "foo" cols []
       return . not . isValidOperation $ ct
   , testProperty "Duplicate Constraints in CreateTable" $
-      forAll arbitrary $ \ct@CreateTable{constraints} -> do
-        constraints' <- mapSomeDupl constraints
-        return . not . isValidOperation $ ct{constraints = constraints'}
+      forAll arbitrary $ \ct@CreateTable'{..} -> do
+        constraints <- mapSomeDupl ctConstraints
+        return . not . isValidOperation . toOperation $ ct{ctConstraints = constraints}
   , testProperty "Constraint references non-existent column" $
-      forAll arbitrary $ \ct@CreateTable{..} -> do
-        let existing = map (Identifier . colName) schema
+      forAll arbitrary $ \ct@CreateTable'{..} -> do
+        let existing = map (Identifier . colName) ctSchema
             genConstraint = do
               Identifier name' <- arbitrary
               cols <- map unIdent <$> listOf1 (arbitrary `suchThat` (`notElem` existing))
               elements [PrimaryKey cols, Unique name' cols]
         newConstraints <- listOf1 genConstraint
-        return . not . isValidOperation $ ct{constraints = constraints ++ newConstraints}
+        return . not . isValidOperation . toOperation $
+          ct{ctConstraints = ctConstraints ++ newConstraints}
   , testProperty "Duplicate ColumnProps in AddColumn" $
       forAll arbitrary $ \col@Column{colProps} -> do
         Identifier table <- arbitrary
@@ -75,7 +76,7 @@ instance Arbitrary OperationPaths where
     OperationPaths <$> shuffle opPaths
 
 -- | Validate an Operation.
-isValidOperation :: Migrateable op => op -> Bool
+isValidOperation :: Operation -> Bool
 isValidOperation = isRight . validateOperation
 
 -- | Validate OperationPaths in a Migration.
