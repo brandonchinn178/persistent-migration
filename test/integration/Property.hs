@@ -23,7 +23,12 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
 import Utils.QuickCheck
-    (ColumnIdentifier(..), CreateTable'(..), Identifier(..), genPersistValue, toOperation)
+    ( ColumnIdentifier(..)
+    , CreateTable'(..)
+    , Identifier(..)
+    , genPersistValue
+    , toOperation
+    )
 import Utils.RunSql (runSql)
 
 -- | A test suite for testing migration properties.

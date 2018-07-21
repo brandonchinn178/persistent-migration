@@ -25,8 +25,7 @@ import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as Text
 import Database.Persist (PersistValue(..), SqlType(..))
 import Database.Persist.Migration.Backend
-import Database.Persist.Migration.Core hiding
-    (getMigration, runMigration)
+import Database.Persist.Migration.Core hiding (getMigration, runMigration)
 import Database.Persist.Migration.Operation
 import Database.Persist.Migration.Operation.Types
 import Database.Persist.Migration.Utils.Sql
