@@ -59,28 +59,28 @@ migrateHeight = RawOperation "Separate height into height_feet, height_inches" $
 migration :: Migration
 migration =
   -- first migration path should create all the tables
-  [ 0 ~> 1 := [Operation createPerson]
+  [ 0 ~> 1 := [createPerson]
 
   -- can define shorter migration paths for equivalent operations; version 2, in this case, should result
   -- in the same schema, regardless of the path taken to get there.
-  , 1 ~> 2 := [Operation $ DropColumn ("person", "alive")]
+  , 1 ~> 2 := [DropColumn ("person", "alive")]
   , 0 ~> 2 :=
-    [ Operation $ createPerson{ctSchema = filter ((/= "alive") . colName) $ ctSchema createPerson}
+    [ createPerson{ctSchema = filter ((/= "alive") . colName) $ ctSchema createPerson}
     ]
 
   -- example for adding columns
   , 2 ~> 3 :=
-    [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
+    [ AddColumn "person" (Column "gender" SqlString []) Nothing
       -- Adding a non-null column needs a default for existing rows.
-    , Operation $ AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just $ PersistInt64 0)
+    , AddColumn "person" (Column "height" SqlInt32 [NotNull]) (Just $ PersistInt64 0)
     ]
 
   -- example for more complex migrations; here, we split up the height field into feet and inches fields
   , 3 ~> 4 :=
-    [ Operation $ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just $ PersistInt64 0)
-    , Operation $ AddColumn "person" (Column "height_inches" SqlInt32 []) (Just $ PersistInt64 0)
-    , Operation migrateHeight
-    , Operation $ DropColumn ("person", "height")
+    [ AddColumn "person" (Column "height_feet" SqlInt32 []) (Just $ PersistInt64 0)
+    , AddColumn "person" (Column "height_inches" SqlInt32 []) (Just $ PersistInt64 0)
+    , migrateHeight
+    , DropColumn ("person", "height")
     ]
   ]
 ```

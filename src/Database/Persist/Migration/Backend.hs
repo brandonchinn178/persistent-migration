@@ -10,17 +10,10 @@ Defines `MigrateBackend`, the data constructor that each SQL backend will need t
 module Database.Persist.Migration.Backend (MigrateBackend(..)) where
 
 import Data.Text (Text)
-import Database.Persist.Migration.Operation.Types
+import Database.Persist.Migration.Operation (Operation)
 import Database.Persist.Sql (SqlPersistT)
 
 -- | The backend to migrate with.
-data MigrateBackend = MigrateBackend
-  { createTable    :: CreateTable -> SqlPersistT IO [Text]
-  , dropTable      :: DropTable -> SqlPersistT IO [Text]
-  , renameTable    :: RenameTable -> SqlPersistT IO [Text]
-  , addConstraint  :: AddConstraint -> SqlPersistT IO [Text]
-  , dropConstraint :: DropConstraint -> SqlPersistT IO [Text]
-  , addColumn      :: AddColumn -> SqlPersistT IO [Text]
-  , renameColumn   :: RenameColumn -> SqlPersistT IO [Text]
-  , dropColumn     :: DropColumn -> SqlPersistT IO [Text]
+newtype MigrateBackend = MigrateBackend
+  { getMigrationText :: Operation -> SqlPersistT IO [Text]
   }

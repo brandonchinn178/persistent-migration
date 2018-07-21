@@ -14,7 +14,6 @@ module Database.Persist.Migration
   , module Backend
   , module Core
   , module Operation
-  , module Operation.Class
   , module Operation.Types
   , module Utils.Sql
   , PersistValue(..)
@@ -29,7 +28,6 @@ import Database.Persist.Migration.Backend as Backend
 import Database.Persist.Migration.Core as Core hiding
     (getMigration, runMigration)
 import Database.Persist.Migration.Operation as Operation
-import Database.Persist.Migration.Operation.Class as Operation.Class
 import Database.Persist.Migration.Operation.Types as Operation.Types
 import Database.Persist.Migration.Utils.Sql as Utils.Sql
 import qualified Database.Persist.Sql as Persistent
