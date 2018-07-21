@@ -24,21 +24,6 @@ import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
-    ( AddColumn(..)
-    , Column(..)
-    , ColumnProp(..)
-    , CreateTable(..)
-    , DropColumn(..)
-    , MigrateBackend
-    , Migration
-    , MigrationPath(..)
-    , Operation(..)
-    , RawOperation(..)
-    , TableConstraint(..)
-    , checkMigration
-    , hasMigration
-    , (~>)
-    )
 import Database.Persist.Migration.Utils.Sql (interpolate, uncommas, uncommas')
 import Database.Persist.Sql
     ( PersistValue(..)
@@ -76,7 +61,7 @@ manualMigration :: Migration
 manualMigration =
   -- create tables
   [ 0 ~> 1 :=
-    [ Operation $ CreateTable
+    [ CreateTable
         { name = "city"
         , schema =
             [ Column "id" SqlInt64 [NotNull, AutoIncrement]
@@ -88,7 +73,7 @@ manualMigration =
             , Unique "unique_city" ["state", "name"]
             ]
         }
-    , Operation $ CreateTable
+    , CreateTable
         { name = "person"
         , schema =
             [ Column "id" SqlInt64 [NotNull, AutoIncrement]
@@ -103,24 +88,24 @@ manualMigration =
 
   -- add binary sex column
   , 1 ~> 2 :=
-    [ Operation $ AddColumn "person" (Column "sex" SqlInt32 []) Nothing
+    [ AddColumn "person" (Column "sex" SqlInt32 []) Nothing
     ]
 
   -- change binary sex to stringly gender
   , 2 ~> 3 :=
-    [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
-    , Operation migrateGender
-    , Operation $ DropColumn ("person", "sex")
+    [ AddColumn "person" (Column "gender" SqlString []) Nothing
+    , migrateGender
+    , DropColumn ("person", "sex")
     ]
 
   -- shortcut for databases that hadn't already added the sex column
   , 1 ~> 3 :=
-    [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
+    [ AddColumn "person" (Column "gender" SqlString []) Nothing
     ]
 
   -- add colorblind column, with everyone currently in the database being not colorblind
   , 3 ~> 4 :=
-    [ Operation $ AddColumn "person" (Column "colorblind" SqlBool [NotNull])
+    [ AddColumn "person" (Column "colorblind" SqlBool [NotNull])
         (Just $ PersistBool False)
     ]
   ]

@@ -18,7 +18,7 @@ testMigrations :: FilePath -> MigrateBackend -> TestTree
 testMigrations dir backend = testGroup "goldens"
   [ goldenMigration' "Basic migration" defaultDatabase
       [ 0 ~> 1 :=
-        [ Operation $ CreateTable
+        [ CreateTable
             { name = "person"
             , schema =
                 [ Column "id" SqlInt32 []
@@ -34,30 +34,30 @@ testMigrations dir backend = testGroup "goldens"
             }
         ]
       , 1 ~> 2 :=
-        [ Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing
-        , Operation $ DropColumn ("person", "alive")
+        [ AddColumn "person" (Column "gender" SqlString []) Nothing
+        , DropColumn ("person", "alive")
         ]
       , 2 ~> 3 :=
-        [ Operation $ DropTable "person"
+        [ DropTable "person"
         ]
       ]
   , goldenMigration' "Partial migration" (withVersion 1)
-      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
-      , 1 ~> 2 := [Operation $ DropTable "person"]
+      [ 0 ~> 1 := [CreateTable "person" [] []]
+      , 1 ~> 2 := [DropTable "person"]
       ]
   , goldenMigration' "Complete migration" (withVersion 2)
-      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
-      , 1 ~> 2 := [Operation $ DropTable "person"]
+      [ 0 ~> 1 := [CreateTable "person" [] []]
+      , 1 ~> 2 := [DropTable "person"]
       ]
   , goldenMigration' "Migration with shorter path" defaultDatabase
-      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
-      , 1 ~> 2 := [Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing]
-      , 0 ~> 2 := [Operation $ CreateTable "person" [Column "gender" SqlString []] []]
+      [ 0 ~> 1 := [CreateTable "person" [] []]
+      , 1 ~> 2 := [AddColumn "person" (Column "gender" SqlString []) Nothing]
+      , 0 ~> 2 := [CreateTable "person" [Column "gender" SqlString []] []]
       ]
   , goldenMigration' "Partial migration avoids shorter path" (withVersion 1)
-      [ 0 ~> 1 := [Operation $ CreateTable "person" [] []]
-      , 1 ~> 2 := [Operation $ AddColumn "person" (Column "gender" SqlString []) Nothing]
-      , 0 ~> 2 := [Operation $ CreateTable "person" [Column "gender" SqlString []] []]
+      [ 0 ~> 1 := [CreateTable "person" [] []]
+      , 1 ~> 2 := [AddColumn "person" (Column "gender" SqlString []) Nothing]
+      , 0 ~> 2 := [CreateTable "person" [Column "gender" SqlString []] []]
       ]
   ]
   where

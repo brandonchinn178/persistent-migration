@@ -34,10 +34,15 @@ import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
 import Database.Persist.Migration.Backend (MigrateBackend(..))
 import Database.Persist.Migration.Operation
-    (Migration, MigrationPath(..), Operation(..), Version, opPath)
-import Database.Persist.Migration.Operation.Class (Migrateable(..))
+    ( Migration
+    , MigrationPath(..)
+    , Operation(..)
+    , Version
+    , opPath
+    , validateOperation
+    )
 import Database.Persist.Migration.Operation.Types
-    (Column(..), ColumnProp(..), CreateTable(..), TableConstraint(..))
+    (Column(..), ColumnProp(..), TableConstraint(..))
 import Database.Persist.Migration.Utils.Plan (getPath)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
@@ -47,7 +52,7 @@ import Database.Persist.Types (SqlType(..))
 getCurrVersion :: MonadIO m => MigrateBackend -> SqlPersistT m (Maybe Version)
 getCurrVersion backend = do
   -- create the persistent_migration table if it doesn't already exist
-  mapReaderT liftIO (createTable backend migrationSchema) >>= rawExecute'
+  mapReaderT liftIO (getMigrationText backend migrationSchema) >>= rawExecute'
   extractVersion <$> rawSql queryVersion []
   where
     migrationSchema = CreateTable
@@ -130,14 +135,12 @@ getMigration backend _ migration = do
   either fail return $ validateMigration migration
   currVersion <- getCurrVersion backend
   operations <- either badPath return $ getOperations migration currVersion
-  either fail return $ mapM_ (\(Operation op) -> validateOperation op) operations
-  concatMapM getMigrationText' operations
+  either fail return $ mapM_ validateOperation operations
+  concatMapM (mapReaderT liftIO . getMigrationText backend) operations
   where
     badPath (start, end) = fail $ "Could not find path: " ++ show start ++ " ~> " ++ show end
     -- Utilities
     concatMapM f = fmap concat . mapM f
-    -- Operation helpers
-    getMigrationText' (Operation op) = mapReaderT liftIO $ getMigrationText backend op
 
 -- | Execute the given SQL strings.
 rawExecute' :: MonadIO m => [Text] -> SqlPersistT m ()

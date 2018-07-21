@@ -18,7 +18,6 @@ module Database.Persist.Migration.Postgres
   ) where
 
 import Data.Maybe (maybeToList)
-import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration
@@ -38,69 +37,65 @@ getMigration = Migration.getMigration backend
 -- | The migration backend for Postgres.
 backend :: MigrateBackend
 backend = MigrateBackend
-  { createTable = createTable'
-  , dropTable = dropTable'
-  , renameTable = renameTable'
-  , addConstraint = addConstraint'
-  , dropConstraint = dropConstraint'
-  , addColumn = addColumn'
-  , renameColumn = renameColumn'
-  , dropColumn = dropColumn'
+  { getMigrationText = getMigrationText'
   }
 
-createTable' :: CreateTable -> SqlPersistT IO [Text]
-createTable' CreateTable{..} = return
-  ["CREATE TABLE IF NOT EXISTS " <> quote name <> "(" <> uncommas tableDefs <> ")"]
+getMigrationText' :: Operation -> SqlPersistT IO [Text]
+
+getMigrationText' CreateTable{..} = fromWords
+  ["CREATE TABLE IF NOT EXISTS", quote name, "(", uncommas tableDefs, ")"]
   where
     tableDefs = map showColumn schema ++ map showTableConstraint constraints
 
-dropTable' :: DropTable -> SqlPersistT IO [Text]
-dropTable' DropTable{..} = return ["DROP TABLE IF EXISTS " <> quote table]
+getMigrationText' DropTable{..} = fromWords
+  ["DROP TABLE IF EXISTS", quote table]
 
-renameTable' :: RenameTable -> SqlPersistT IO [Text]
-renameTable' RenameTable{..} = return
-  ["ALTER TABLE " <> quote from <> " RENAME TO " <> quote to]
+getMigrationText' RenameTable{..} = fromWords
+  ["ALTER TABLE", quote from, "RENAME TO", quote to]
 
-addConstraint' :: AddConstraint -> SqlPersistT IO [Text]
-addConstraint' AddConstraint{..} = return ["ALTER TABLE " <> quote table <> " " <> statement]
+getMigrationText' AddConstraint{..} = fromWords
+  ["ALTER TABLE", quote table, statement]
   where
     statement = case constraint of
-      PrimaryKey cols -> "ADD PRIMARY KEY (" <> uncommas' cols <> ")"
-      Unique label cols -> "ADD CONSTRAINT " <> quote label <> " UNIQUE (" <> uncommas' cols <> ")"
+      PrimaryKey cols -> Text.unwords ["ADD PRIMARY KEY (", uncommas' cols, ")"]
+      Unique label cols -> Text.unwords
+        ["ADD CONSTRAINT", quote label, "UNIQUE (", uncommas' cols, ")"]
 
-dropConstraint' :: DropConstraint -> SqlPersistT IO [Text]
-dropConstraint' DropConstraint{..} = return
-  ["ALTER TABLE " <> quote table <> " DROP CONSTRAINT " <> constraint]
+getMigrationText' DropConstraint{..} = fromWords
+  ["ALTER TABLE", quote table, "DROP CONSTRAINT", constraintName]
 
-addColumn' :: AddColumn -> SqlPersistT IO [Text]
-addColumn' AddColumn{..} = return $ createQuery : maybeToList alterQuery
+getMigrationText' AddColumn{..} = return $ createQuery : maybeToList alterQuery
   where
     Column{..} = column
     withoutDefault = column { colProps = filter (not . isDefault) colProps }
-    alterTable = "ALTER TABLE " <> quote table <> " "
+    alterTable = Text.unwords ["ALTER TABLE", quote table]
     -- The CREATE query with the default specified by AddColumn{colDefault}
-    createQuery = alterTable <> "ADD COLUMN " <> showColumn withoutDefault <> createDefault
+    createQuery = Text.unwords [alterTable, "ADD COLUMN", showColumn withoutDefault, createDefault]
     createDefault = case colDefault of
       Nothing -> ""
-      Just def -> " DEFAULT " <> showValue def
+      Just def -> Text.unwords ["DEFAULT", showValue def]
     -- The ALTER query to drop/set the default (if colDefault was set)
     alterQuery =
       let action = case getDefault colProps of
             Nothing -> "DROP DEFAULT"
-            Just v -> "SET DEFAULT " <> showValue v
-          alterQuery' = alterTable <> "ALTER COLUMN" <> quote colName <> " " <> action
+            Just v -> Text.unwords ["SET DEFAULT", showValue v]
+          alterQuery' = Text.unwords [alterTable, "ALTER COLUMN", quote colName, action]
       in alterQuery' <$ colDefault
 
-renameColumn' :: RenameColumn -> SqlPersistT IO [Text]
-renameColumn' RenameColumn{..} = return . pure $ Text.unwords
+getMigrationText' RenameColumn{..} = fromWords
   ["ALTER TABLE", quote table, "RENAME COLUMN", quote from, "TO", quote to]
 
-dropColumn' :: DropColumn -> SqlPersistT IO [Text]
-dropColumn' DropColumn{..} = return ["ALTER TABLE " <> quote tab <> " DROP COLUMN " <> quote col]
+getMigrationText' DropColumn{..} = fromWords
+  ["ALTER TABLE", quote tab, "DROP COLUMN", quote col]
   where
-    (tab, col) = column
+    (tab, col) = columnId
+
+getMigrationText' RawOperation{..} = rawOp
 
 {- Helpers -}
+
+fromWords :: Monad m => [Text] -> m [Text]
+fromWords = return . pure . Text.unwords
 
 -- | True if the given ColumnProp sets a default.
 isDefault :: ColumnProp -> Bool
@@ -132,7 +127,7 @@ showSqlType = \case
   SqlInt32 -> "INT4"
   SqlInt64 -> "INT8"
   SqlReal -> "DOUBLE PRECISION"
-  SqlNumeric s prec -> "NUMERIC(" <> showT s <> "," <> showT prec <> ")"
+  SqlNumeric s prec -> Text.concat ["NUMERIC(", showT s, ",", showT prec, ")"]
   SqlDay -> "DATE"
   SqlTime -> "TIME"
   SqlDayTime -> "TIMESTAMP WITH TIME ZONE"
@@ -147,12 +142,12 @@ showSqlType = \case
 showColumnProp :: ColumnProp -> Text
 showColumnProp = \case
   NotNull -> "NOT NULL"
-  References (tab, col) -> "REFERENCES " <> quote tab <> "(" <> quote col <> ")"
+  References (tab, col) -> Text.unwords ["REFERENCES", quote tab, "(", quote col, ")"]
   AutoIncrement -> ""
-  Default v -> "DEFAULT " <> showValue v
+  Default v -> Text.unwords ["DEFAULT", showValue v]
 
 -- | Show a `TableConstraint`.
 showTableConstraint :: TableConstraint -> Text
 showTableConstraint = \case
-  PrimaryKey cols -> "PRIMARY KEY (" <> uncommas' cols <> ")"
-  Unique name cols -> "CONSTRAINT " <> quote name <> " UNIQUE (" <> uncommas' cols <> ")"
+  PrimaryKey cols -> Text.unwords ["PRIMARY KEY (", uncommas' cols, ")"]
+  Unique name cols -> Text.unwords ["CONSTRAINT", quote name, "UNIQUE (", uncommas' cols, ")"]

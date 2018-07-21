@@ -22,7 +22,13 @@ import Test.QuickCheck.Property (rejected)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
-import Utils.QuickCheck (ColumnIdentifier(..), Identifier(..), genPersistValue)
+import Utils.QuickCheck
+    ( ColumnIdentifier(..)
+    , CreateTable'(..)
+    , Identifier(..)
+    , genPersistValue
+    , toOperation
+    )
 import Utils.RunSql (runSql)
 
 -- | A test suite for testing migration properties.
@@ -31,8 +37,8 @@ testProperties backend getPool = testGroup "properties"
   [ testProperty "Create and drop tables" $ withCreateTable $
       const $ return ()
   , testProperty "Rename table" $ withCreateTable $ \(table, fkTables) -> do
-      let tableName = name table
-          fkNames = map name fkTables
+      let tableName = ctName table
+          fkNames = map ctName fkTables
       Identifier newName <- pick $ arbitrary `suchThat`
         ((`notElem` tableName:fkNames) . unIdent)
       runSqlPool' $ do
@@ -42,33 +48,33 @@ testProperties backend getPool = testGroup "properties"
       let getUniqueCols = \case
             PrimaryKey _ -> []
             Unique _ cols -> cols
-          tableCols = map colName $ schema table
-          uniqueCols = concatMap getUniqueCols $ constraints table
+          tableCols = map colName $ ctSchema table
+          uniqueCols = concatMap getUniqueCols $ ctConstraints table
           nonUniqueCols = take 32 $ filter (`notElem` uniqueCols) tableCols
       if null nonUniqueCols
         then return False
         else do
           let uniqueName = Text.take 63 $ "unique_" <> Text.intercalate "_" nonUniqueCols
           runSqlPool' $
-            runOperation' $ AddConstraint (name table) $ Unique uniqueName nonUniqueCols
+            runOperation' $ AddConstraint (ctName table) $ Unique uniqueName nonUniqueCols
           return True
   , testProperty "Drop UNIQUE constraint" $ withCreateTable $ \(table, _) -> do
       let getUniqueName = \case
             PrimaryKey _ -> Nothing
             Unique n _ -> Just n
-          uniqueNames = mapMaybe getUniqueName $ constraints table
+          uniqueNames = mapMaybe getUniqueName $ ctConstraints table
       if null uniqueNames
         then return False
         else do
           uniqueName <- pick $ elements uniqueNames
-          runSqlPool' $ runOperation' $ DropConstraint (name table) uniqueName
+          runSqlPool' $ runOperation' $ DropConstraint (ctName table) uniqueName
           return True
   , testProperty "Add column" $ withCreateTable $ \(table, fkTables) -> do
       -- generate a new column
       col <- pick arbitrary
 
       -- pick a new name for the column
-      let cols = map colName $ schema table
+      let cols = map colName $ ctSchema table
       Identifier newName <- pick $ arbitrary `suchThat` ((`notElem` cols) . unIdent)
 
       -- if foreign key tables exist, update any foreign key references to point to one of those.
@@ -85,7 +91,7 @@ testProperties backend getPool = testGroup "properties"
         in if null fkTables || not hasReference
             then return col{colProps = props}
             else do
-              fkTable <- pick $ name <$> elements fkTables
+              fkTable <- pick $ ctName <$> elements fkTables
               return $ col{colProps = References (fkTable, "id") : props}
 
       -- pick a default value according to nullability and sqltype
@@ -94,33 +100,32 @@ testProperties backend getPool = testGroup "properties"
         then return $ Just defaultVal
         else pick $ elements [Nothing, Just defaultVal]
 
-      runSqlPool' $ runOperation' $ AddColumn (name table) col'{colName = newName} defaultVal'
+      runSqlPool' $ runOperation' $ AddColumn (ctName table) col'{colName = newName} defaultVal'
   , testProperty "Rename column" $ withCreateTable $ \(table, _) -> do
-      let cols = map colName $ schema table
+      let cols = map colName $ ctSchema table
       col <- pick $ elements cols
       ColumnIdentifier newName <- pick arbitrary
-      runSqlPool' $ runOperation' $ RenameColumn (name table) col newName
+      runSqlPool' $ runOperation' $ RenameColumn (ctName table) col newName
   , testProperty "Drop column" $ withCreateTable $ \(table, _) -> do
-      let cols = map colName $ schema table
+      let cols = map colName $ ctSchema table
       col <- pick $ elements cols
-      runSqlPool' $ runOperation' $ DropColumn (name table, col)
+      runSqlPool' $ runOperation' $ DropColumn (ctName table, col)
   ]
   where
     runSqlPool' = runSqlPool getPool
-    runOperation' :: Migrateable op => op -> SqlPersistT IO ()
     runOperation' = runOperation backend
     -- | Create a table and its foreign key dependencies, then run the given action, which should
     -- return False if the test case should be discarded (`()` == True). The tables will be dropped
     -- when finished
-    withCreateTable :: PseudoBool a => ((CreateTable, [CreateTable]) -> PropertyM IO a) -> Property
+    withCreateTable :: PseudoBool a => ((CreateTable', [CreateTable']) -> PropertyM IO a) -> Property
     withCreateTable action = monadicIO $ do
       table <- pick arbitrary
       fkTables <- pick $ getForeignKeyTables table
-      runSqlPool' $ mapM_ runOperation' (fkTables ++ [table])
+      runSqlPool' $ mapM_ (runOperation' . toOperation) (fkTables ++ [table])
       isSuccess <- toBool <$> action (table, fkTables)
       runSqlPool' $ mapM_ dropTable' (table:fkTables)
       unless isSuccess $ stop rejected
-    dropTable' CreateTable{name} = runOperation' $ DropTable name
+    dropTable' CreateTable'{ctName} = runOperation' $ DropTable ctName
 
 {- Helpers -}
 
@@ -129,7 +134,7 @@ runSqlPool :: IO (Pool SqlBackend) -> SqlPersistT IO () -> PropertyM IO ()
 runSqlPool getPool f = run $ getPool >>= \pool -> runSql pool f
 
 -- | Run the given operation.
-runOperation :: Migrateable op => MigrateBackend -> op -> SqlPersistT IO ()
+runOperation :: MigrateBackend -> Operation -> SqlPersistT IO ()
 runOperation backend = getMigrationText backend >=> mapM_ rawExecutePrint
   where
     -- if rawExecute fails, show the sql query run
@@ -141,11 +146,11 @@ runOperation backend = getMigrationText backend >=> mapM_ rawExecutePrint
 
 -- | Get the CreateTable operations that are necessary for the foreign keys in the
 -- given CreateTable operation.
-getForeignKeyTables :: CreateTable -> Gen [CreateTable]
+getForeignKeyTables :: CreateTable' -> Gen [CreateTable']
 getForeignKeyTables ct =
   zipWith modifyTable neededTables <$> vectorOf (length neededTables) arbitrary
   where
-    neededTables = nub $ concatMap (mapMaybe getReferenceTable . colProps) $ schema ct
+    neededTables = nub $ concatMap (mapMaybe getReferenceTable . colProps) $ ctSchema ct
     getReferenceTable = \case
       References (table, _) -> Just table
       _ -> Nothing
@@ -154,8 +159,8 @@ getForeignKeyTables ct =
       _ -> False
     noFKs = filter (not . isReference) . colProps
     modifyTable name ct' = ct'
-      { name = name
-      , schema = map (\col -> col{colProps = noFKs col}) $ schema ct'
+      { ctName = name
+      , ctSchema = map (\col -> col{colProps = noFKs col}) $ ctSchema ct'
       }
 
 class PseudoBool a where

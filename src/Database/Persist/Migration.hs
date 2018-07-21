@@ -11,12 +11,11 @@ module Database.Persist.Migration
   ( hasMigration
   , checkMigration
   -- * Re-exports
-  , module Backend
-  , module Core
-  , module Operation
-  , module Operation.Class
-  , module Operation.Types
-  , module Utils.Sql
+  , module Database.Persist.Migration.Backend
+  , module Database.Persist.Migration.Core
+  , module Database.Persist.Migration.Operation
+  , module Database.Persist.Migration.Operation.Types
+  , module Database.Persist.Migration.Utils.Sql
   , PersistValue(..)
   , SqlType(..)
   ) where
@@ -25,13 +24,11 @@ import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as Text
 import Database.Persist (PersistValue(..), SqlType(..))
-import Database.Persist.Migration.Backend as Backend
-import Database.Persist.Migration.Core as Core hiding
-    (getMigration, runMigration)
-import Database.Persist.Migration.Operation as Operation
-import Database.Persist.Migration.Operation.Class as Operation.Class
-import Database.Persist.Migration.Operation.Types as Operation.Types
-import Database.Persist.Migration.Utils.Sql as Utils.Sql
+import Database.Persist.Migration.Backend
+import Database.Persist.Migration.Core hiding (getMigration, runMigration)
+import Database.Persist.Migration.Operation
+import Database.Persist.Migration.Operation.Types
+import Database.Persist.Migration.Utils.Sql
 import qualified Database.Persist.Sql as Persistent
 
 -- | True if the persistent library detects more migrations unaccounted for.
