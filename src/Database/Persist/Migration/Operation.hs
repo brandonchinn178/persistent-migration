@@ -33,6 +33,9 @@ import Database.Persist.Sql (PersistValue, SqlPersistT)
 --
 -- The version must be increasing, such that the lowest version is the first version and the highest
 -- version is the most up-to-date version.
+--
+-- A version represents a version of the database schema. In other words, any set of operations
+-- taken to get to version X *MUST* all result in the same database schema.
 type Version = Int
 
 -- | The path that an operation takes.
@@ -42,8 +45,11 @@ type OperationPath = (Version, Version)
 (~>) :: Version -> Version -> OperationPath
 (~>) = (,)
 
+-- | A migration list that defines operations to manually migrate a database schema.
 type Migration = [MigrationPath]
 
+-- | A path representing the operations needed to run to get from one version of the database schema
+-- to the next.
 data MigrationPath = OperationPath := [Operation]
   deriving (Show)
 
@@ -106,6 +112,7 @@ data Operation
 instance Show (SqlPersistT m a) where
   show _ = "<SqlPersistT>"
 
+-- | Validate that the given Operation is valid.
 validateOperation :: Operation -> Either String ()
 validateOperation ct@CreateTable{..} = do
   mapM_ validateColumn schema

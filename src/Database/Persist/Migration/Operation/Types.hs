@@ -4,7 +4,7 @@ Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
 
-Defines the data types that can be used in Operations.
+Defines auxiliary data types that can be used in Operations.
 -}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DuplicateRecordFields #-}
