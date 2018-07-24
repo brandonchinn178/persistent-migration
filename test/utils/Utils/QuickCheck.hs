@@ -17,6 +17,7 @@ module Utils.QuickCheck
 
 import Control.Monad ((>=>))
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as ByteString
 import Data.List (nub)
 import Data.Monoid ((<>))
 import Data.Text (Text)
@@ -156,7 +157,7 @@ instance Arbitrary SqlType where
 -- | Generate an arbitrary PersistValue for the given SqlType.
 genPersistValue :: SqlType -> Gen PersistValue
 genPersistValue = \case
-  SqlString -> PersistText <$> arbitrary
+  SqlString -> PersistText . Text.map cleanText <$> arbitrary
   SqlInt32 -> PersistInt64 <$> choose (-2147483648, 2147483647)
   SqlInt64 -> PersistInt64 <$> choose (-2147483648, 2147483647)
   SqlReal -> PersistDouble . cleanDouble  <$> arbitrary
@@ -169,11 +170,15 @@ genPersistValue = \case
   SqlDay -> PersistDay <$> arbitrary
   SqlTime -> PersistTimeOfDay <$> arbitrary
   SqlDayTime -> PersistUTCTime <$> arbitrary
-  SqlBlob -> PersistByteString <$> arbitrary
+  SqlBlob -> PersistByteString . ByteString.map cleanText <$> arbitrary
   SqlOther _ -> fail "SqlOther not supported"
   where
     cleanDouble :: Double -> Double
     cleanDouble x = if isInfinite x || isNaN x then 0 else x
+    -- https://github.com/lpsmith/postgresql-simple/issues/169
+    cleanText :: Char -> Char
+    cleanText '?' = '_'
+    cleanText c = c
 
 {- Utilities -}
 
