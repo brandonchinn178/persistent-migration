@@ -104,7 +104,7 @@ testProperties backend getPool = testGroup "properties"
   , testProperty "Rename column" $ withCreateTable $ \(table, _) -> do
       let cols = map colName $ ctSchema table
       col <- pick $ elements cols
-      ColumnIdentifier newName <- pick arbitrary
+      ColumnIdentifier newName <- pick $ arbitrary `suchThat` ((`notElem` cols) . unColIdent)
       runSqlPool' $ runOperation' $ RenameColumn (ctName table) col newName
   , testProperty "Drop column" $ withCreateTable $ \(table, _) -> do
       let cols = map colName $ ctSchema table
