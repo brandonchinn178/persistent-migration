@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Migration (testMigrations) where
 
@@ -70,7 +71,8 @@ goldenMigration
   :: FilePath -> MigrateBackend -> TestName -> MockDatabase -> Migration -> TestTree
 goldenMigration dir backend testName testBackend migration = goldenVsText dir testName $ do
   setDatabase testBackend
-  Text.unlines <$> getMigration' migration
+  MigrateSql{..} <- concatSql Text.unlines <$> getMigration' migration
+  return $ Text.unlines [sqlText, Text.pack $ show sqlVals]
   where
     getMigration' = withTestBackend . runReaderT . getMigration backend defaultSettings
 

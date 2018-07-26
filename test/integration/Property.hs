@@ -14,8 +14,9 @@ import Data.Maybe (mapMaybe)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 import Database.Persist.Migration
-import Database.Persist.Sql (SqlBackend, SqlPersistT, rawExecute)
+import Database.Persist.Sql (SqlBackend, SqlPersistT)
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run, stop)
 import Test.QuickCheck.Property (rejected)
@@ -135,13 +136,16 @@ runSqlPool getPool f = run $ getPool >>= \pool -> runSql pool f
 
 -- | Run the given operation.
 runOperation :: MigrateBackend -> Operation -> SqlPersistT IO ()
-runOperation backend = getMigrationText backend >=> mapM_ rawExecutePrint
+runOperation backend = getMigrationSql backend >=> mapM_ rawExecutePrint
   where
     -- if rawExecute fails, show the sql query run
-    rawExecutePrint sql = try (rawExecute sql []) >>= \case
+    rawExecutePrint sql = try (executeSql sql) >>= \case
       Right () -> return ()
       Left (SomeException e) -> do
-        liftIO $ print sql
+        liftIO $ do
+          putStrLn "\n*** Failure:"
+          Text.putStrLn $ sqlText sql
+          print $ sqlVals sql
         fail $ show e
 
 -- | Get the CreateTable operations that are necessary for the foreign keys in the

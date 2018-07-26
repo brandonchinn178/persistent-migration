@@ -189,7 +189,7 @@ instance (Arbitrary a, Eq a) => Arbitrary (DistinctList a) where
   arbitrary = DistinctList . nub <$> listOf arbitrary
 
 instance Arbitrary Text where
-  arbitrary = Text.pack . getUnicodeString <$> arbitrary
+  arbitrary = Text.pack . getASCIIString <$> arbitrary
 
 instance Arbitrary ByteString where
   arbitrary = Text.encodeUtf8 <$> arbitrary

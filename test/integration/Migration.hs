@@ -24,7 +24,7 @@ import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
-import Database.Persist.Migration.Utils.Sql (interpolate, uncommas, uncommas')
+import Database.Persist.Migration.Utils.Sql (uncommas, uncommas')
 import Database.Persist.Sql
     ( PersistValue(..)
     , Single(..)
@@ -115,7 +115,7 @@ manualMigration =
     migrateGender' = \case
       (_, Single Nothing) -> Nothing
       (Single id', Single (Just sex)) ->
-        Just $ interpolate "UPDATE person SET gender = ? WHERE id = ?"
+        Just $ MigrateSql  "UPDATE person SET gender = ? WHERE id = ?"
           [ PersistText $ sexToGender sex
           , PersistInt64 id'
           ]

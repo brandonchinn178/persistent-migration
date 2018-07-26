@@ -22,8 +22,6 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration
 import qualified Database.Persist.Migration.Core as Migration
-import Database.Persist.Migration.Utils.Sql
-    (quote, showValue, uncommas, uncommas')
 import Database.Persist.Sql (PersistValue, SqlPersistT, SqlType(..))
 
 -- | Run a migration with the Postgres backend.
@@ -31,29 +29,30 @@ runMigration :: MigrateSettings -> Migration -> SqlPersistT IO ()
 runMigration = Migration.runMigration backend
 
 -- | Get a migration with the Postgres backend.
-getMigration :: MigrateSettings -> Migration -> SqlPersistT IO [Text]
+getMigration :: MigrateSettings -> Migration -> SqlPersistT IO [MigrateSql]
 getMigration = Migration.getMigration backend
 
 -- | The migration backend for Postgres.
 backend :: MigrateBackend
 backend = MigrateBackend
-  { getMigrationText = getMigrationText'
+  { getMigrationSql = getMigrationSql'
   }
 
-getMigrationText' :: Operation -> SqlPersistT IO [Text]
+getMigrationSql' :: Operation -> SqlPersistT IO [MigrateSql]
 
-getMigrationText' CreateTable{..} = fromWords
-  ["CREATE TABLE IF NOT EXISTS", quote name, "(", uncommas tableDefs, ")"]
+getMigrationSql' CreateTable{..} = fromMigrateSql $ mapSql
+  (\sql -> Text.unwords ["CREATE TABLE IF NOT EXISTS", quote name, "(", sql, ")"])
+  $ concatSql uncommas tableDefs
   where
     tableDefs = map showColumn schema ++ map showTableConstraint constraints
 
-getMigrationText' DropTable{..} = fromWords
+getMigrationSql' DropTable{..} = fromWords
   ["DROP TABLE IF EXISTS", quote table]
 
-getMigrationText' RenameTable{..} = fromWords
+getMigrationSql' RenameTable{..} = fromWords
   ["ALTER TABLE", quote from, "RENAME TO", quote to]
 
-getMigrationText' AddConstraint{..} = fromWords
+getMigrationSql' AddConstraint{..} = fromWords
   ["ALTER TABLE", quote table, statement]
   where
     statement = case constraint of
@@ -61,41 +60,48 @@ getMigrationText' AddConstraint{..} = fromWords
       Unique label cols -> Text.unwords
         ["ADD CONSTRAINT", quote label, "UNIQUE (", uncommas' cols, ")"]
 
-getMigrationText' DropConstraint{..} = fromWords
+getMigrationSql' DropConstraint{..} = fromWords
   ["ALTER TABLE", quote table, "DROP CONSTRAINT", constraintName]
 
-getMigrationText' AddColumn{..} = return $ createQuery : maybeToList alterQuery
+getMigrationSql' AddColumn{..} = return $ createQuery : maybeToList alterQuery
   where
     Column{..} = column
-    withoutDefault = column { colProps = filter (not . isDefault) colProps }
     alterTable = Text.unwords ["ALTER TABLE", quote table]
     -- The CREATE query with the default specified by AddColumn{colDefault}
-    createQuery = Text.unwords [alterTable, "ADD COLUMN", showColumn withoutDefault, createDefault]
+    withoutDefault = showColumn $ column { colProps = filter (not . isDefault) colProps }
     createDefault = case colDefault of
-      Nothing -> ""
-      Just def -> Text.unwords ["DEFAULT", showValue def]
+      Nothing -> MigrateSql "" []
+      Just def -> MigrateSql "DEFAULT ?" [def]
+    createQuery = concatSql
+      (\sqls -> Text.unwords $ [alterTable, "ADD COLUMN"] ++ sqls)
+      [withoutDefault, createDefault]
     -- The ALTER query to drop/set the default (if colDefault was set)
     alterQuery =
       let action = case getDefault colProps of
-            Nothing -> "DROP DEFAULT"
-            Just v -> Text.unwords ["SET DEFAULT", showValue v]
-          alterQuery' = Text.unwords [alterTable, "ALTER COLUMN", quote colName, action]
+            Nothing -> pureSql "DROP DEFAULT"
+            Just v -> MigrateSql "SET DEFAULT ?" [v]
+          alterQuery' = mapSql
+            (\sql -> Text.unwords [alterTable, "ALTER COLUMN", quote colName, sql])
+            action
       in alterQuery' <$ colDefault
 
-getMigrationText' RenameColumn{..} = fromWords
+getMigrationSql' RenameColumn{..} = fromWords
   ["ALTER TABLE", quote table, "RENAME COLUMN", quote from, "TO", quote to]
 
-getMigrationText' DropColumn{..} = fromWords
+getMigrationSql' DropColumn{..} = fromWords
   ["ALTER TABLE", quote tab, "DROP COLUMN", quote col]
   where
     (tab, col) = columnId
 
-getMigrationText' RawOperation{..} = rawOp
+getMigrationSql' RawOperation{..} = rawOp
 
 {- Helpers -}
 
-fromWords :: Monad m => [Text] -> m [Text]
-fromWords = return . pure . Text.unwords
+fromMigrateSql :: Monad m => MigrateSql -> m [MigrateSql]
+fromMigrateSql = return . pure
+
+fromWords :: Monad m => [Text] -> m [MigrateSql]
+fromWords = fromMigrateSql . pureSql . Text.unwords
 
 -- | True if the given ColumnProp sets a default.
 isDefault :: ColumnProp -> Bool
@@ -109,12 +115,10 @@ getDefault (Default v : _) = Just v
 getDefault (_:props) = getDefault props
 
 -- | Show a 'Column'.
-showColumn :: Column -> Text
-showColumn Column{..} =
-  Text.unwords
-    $ quote colName
-    : sqlType
-    : map showColumnProp colProps
+showColumn :: Column -> MigrateSql
+showColumn Column{..} = concatSql
+  (\sqls -> Text.unwords $ [quote colName, sqlType] ++ sqls)
+  $ map showColumnProp colProps
   where
     sqlType = if AutoIncrement `elem` colProps
       then "SERIAL"
@@ -139,15 +143,16 @@ showSqlType = \case
     showT = Text.pack . show
 
 -- | Show a 'ColumnProp'.
-showColumnProp :: ColumnProp -> Text
+showColumnProp :: ColumnProp -> MigrateSql
 showColumnProp = \case
-  NotNull -> "NOT NULL"
-  References (tab, col) -> Text.unwords ["REFERENCES", quote tab, "(", quote col, ")"]
-  AutoIncrement -> ""
-  Default v -> Text.unwords ["DEFAULT", showValue v]
+  NotNull -> pureSql "NOT NULL"
+  References (tab, col) -> pureSql $ Text.unwords
+    ["REFERENCES", quote tab, "(", quote col, ")"]
+  AutoIncrement -> pureSql ""
+  Default v -> MigrateSql "DEFAULT ?" [v]
 
 -- | Show a `TableConstraint`.
-showTableConstraint :: TableConstraint -> Text
-showTableConstraint = \case
+showTableConstraint :: TableConstraint -> MigrateSql
+showTableConstraint = pureSql . \case
   PrimaryKey cols -> Text.unwords ["PRIMARY KEY (", uncommas' cols, ")"]
   Unique name cols -> Text.unwords ["CONSTRAINT", quote name, "UNIQUE (", uncommas' cols, ")"]

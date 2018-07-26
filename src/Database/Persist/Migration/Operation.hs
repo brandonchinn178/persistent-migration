@@ -27,6 +27,7 @@ import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Database.Persist.Migration.Operation.Types
 import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
+import Database.Persist.Migration.Utils.Sql (MigrateSql)
 import Database.Persist.Sql (PersistValue, SqlPersistT)
 
 -- | The version of a database. An operation migrates from the given version to another version.
@@ -95,7 +96,7 @@ data Operation
       }
   | RawOperation
       { message :: Text
-      , rawOp   :: SqlPersistT IO [Text]
+      , rawOp   :: SqlPersistT IO [MigrateSql]
       }
     -- ^ A custom operation that can be defined manually.
     --

@@ -29,7 +29,6 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (mapReaderT)
 import Data.List (nub)
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
 import Database.Persist.Migration.Backend (MigrateBackend(..))
@@ -44,6 +43,7 @@ import Database.Persist.Migration.Operation
 import Database.Persist.Migration.Operation.Types
     (Column(..), ColumnProp(..), TableConstraint(..))
 import Database.Persist.Migration.Utils.Plan (getPath)
+import Database.Persist.Migration.Utils.Sql (MigrateSql, executeSql)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
@@ -52,7 +52,7 @@ import Database.Persist.Types (SqlType(..))
 getCurrVersion :: MonadIO m => MigrateBackend -> SqlPersistT m (Maybe Version)
 getCurrVersion backend = do
   -- create the persistent_migration table if it doesn't already exist
-  mapReaderT liftIO (getMigrationText backend migrationSchema) >>= rawExecute'
+  mapReaderT liftIO (getMigrationSql backend migrationSchema) >>= mapM_ executeSql
   extractVersion <$> rawSql queryVersion []
   where
     migrationSchema = CreateTable
@@ -120,7 +120,7 @@ validateMigration migration = do
 -- | Run the given migration. After successful completion, saves the migration to the database.
 runMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m ()
 runMigration backend settings@MigrateSettings{..} migration = do
-  getMigration backend settings migration >>= rawExecute'
+  getMigration backend settings migration >>= mapM_ executeSql
   now <- liftIO getCurrentTime
   let version = getLatestVersion migration
   rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?, ?)"
@@ -130,18 +130,18 @@ runMigration backend settings@MigrateSettings{..} migration = do
     ]
 
 -- | Get the SQL queries for the given migration.
-getMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m [Text]
+getMigration :: MonadIO m
+  => MigrateBackend
+  -> MigrateSettings
+  -> Migration
+  -> SqlPersistT m [MigrateSql]
 getMigration backend _ migration = do
   either fail return $ validateMigration migration
   currVersion <- getCurrVersion backend
   operations <- either badPath return $ getOperations migration currVersion
   either fail return $ mapM_ validateOperation operations
-  concatMapM (mapReaderT liftIO . getMigrationText backend) operations
+  concatMapM (mapReaderT liftIO . getMigrationSql backend) operations
   where
     badPath (start, end) = fail $ "Could not find path: " ++ show start ++ " ~> " ++ show end
     -- Utilities
     concatMapM f = fmap concat . mapM f
-
--- | Execute the given SQL strings.
-rawExecute' :: MonadIO m => [Text] -> SqlPersistT m ()
-rawExecute' = mapM_ $ \s -> rawExecute s []
