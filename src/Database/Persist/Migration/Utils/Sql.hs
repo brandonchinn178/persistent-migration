@@ -6,7 +6,6 @@ Portability :  portable
 
 Defines helper functions for writing SQL queries.
 -}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 

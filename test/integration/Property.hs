@@ -14,6 +14,7 @@ import Data.Maybe (mapMaybe)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 import Database.Persist.Migration
 import Database.Persist.Sql (SqlBackend, SqlPersistT)
 import Test.QuickCheck
@@ -143,8 +144,8 @@ runOperation backend = getMigrationSql backend >=> mapM_ rawExecutePrint
       Left (SomeException e) -> do
         liftIO $ do
           putStrLn "\n*** Failure:"
-          putStrLn $ Text.unpack $ sqlText sql
-          putStrLn $ show $ sqlVals sql
+          Text.putStrLn $ sqlText sql
+          print $ sqlVals sql
         fail $ show e
 
 -- | Get the CreateTable operations that are necessary for the foreign keys in the

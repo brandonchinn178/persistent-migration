@@ -74,7 +74,7 @@ getMigrationSql' AddColumn{..} = return $ createQuery : maybeToList alterQuery
       Just def -> MigrateSql "DEFAULT ?" [def]
     createQuery = concatSql
       (\sqls -> Text.unwords $ [alterTable, "ADD COLUMN"] ++ sqls)
-      $ [withoutDefault, createDefault]
+      [withoutDefault, createDefault]
     -- The ALTER query to drop/set the default (if colDefault was set)
     alterQuery =
       let action = case getDefault colProps of
