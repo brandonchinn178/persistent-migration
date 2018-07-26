@@ -50,7 +50,7 @@ migrateHeight = RawOperation "Separate height into height_feet, height_inches" $
   where
     migrateHeight' (Single id', Single height) =
       let (feet, inches) = quotRem height 12
-      in interpolate "UPDATE person SET height_feet = ?, height_inches = ? WHERE id = ?"
+      in MigrateSql "UPDATE person SET height_feet = ?, height_inches = ? WHERE id = ?"
         [ PersistInt64 feet
         , PersistInt64 inches
         , PersistInt64 id'
