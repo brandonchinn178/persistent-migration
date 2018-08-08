@@ -43,22 +43,22 @@ testMigrations dir backend = testGroup "goldens"
         ]
       ]
   , goldenMigration' "Partial migration" (withVersion 1)
-      [ 0 ~> 1 := [CreateTable "person" [] []]
+      [ 0 ~> 1 := [createTablePerson []]
       , 1 ~> 2 := [DropTable "person"]
       ]
   , goldenMigration' "Complete migration" (withVersion 2)
-      [ 0 ~> 1 := [CreateTable "person" [] []]
+      [ 0 ~> 1 := [createTablePerson []]
       , 1 ~> 2 := [DropTable "person"]
       ]
   , goldenMigration' "Migration with shorter path" defaultDatabase
-      [ 0 ~> 1 := [CreateTable "person" [] []]
+      [ 0 ~> 1 := [createTablePerson []]
       , 1 ~> 2 := [AddColumn "person" (Column "gender" SqlString []) Nothing]
-      , 0 ~> 2 := [CreateTable "person" [Column "gender" SqlString []] []]
+      , 0 ~> 2 := [createTablePerson [Column "gender" SqlString []]]
       ]
   , goldenMigration' "Partial migration avoids shorter path" (withVersion 1)
-      [ 0 ~> 1 := [CreateTable "person" [] []]
+      [ 0 ~> 1 := [createTablePerson []]
       , 1 ~> 2 := [AddColumn "person" (Column "gender" SqlString []) Nothing]
-      , 0 ~> 2 := [CreateTable "person" [Column "gender" SqlString []] []]
+      , 0 ~> 2 := [createTablePerson [Column "gender" SqlString []]]
       ]
   ]
   where
@@ -79,3 +79,11 @@ goldenMigration dir backend testName testBackend migration = goldenVsText dir te
 -- | Set the version in the MockDatabase.
 withVersion :: Version -> MockDatabase
 withVersion v = defaultDatabase{version = Just v}
+
+-- | Create a basic 'person' table.
+createTablePerson :: [Column] -> Operation
+createTablePerson cols = CreateTable
+  { name = "person"
+  , schema = Column "id" SqlInt64 [NotNull, AutoIncrement] : cols
+  , constraints = [PrimaryKey ["id"]]
+  }
