@@ -26,7 +26,7 @@ import Control.Monad (when)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Database.Persist.Migration.Operation.Types
-import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
+import Database.Persist.Migration.Utils.Data (isConstr)
 import Database.Persist.Migration.Utils.Sql (MigrateSql)
 import Database.Persist.Sql (PersistValue, SqlPersistT)
 
@@ -117,15 +117,24 @@ instance Show (SqlPersistT m a) where
 validateOperation :: Operation -> Either String ()
 validateOperation ct@CreateTable{..} = do
   mapM_ validateColumn schema
-  when (hasDuplicateConstrs constraints) $
-    Left $ "Duplicate table constraints detected: " ++ show ct
+
+  case length . filter (isConstr "PrimaryKey") $ constraints of
+    0 -> fail' "No primary key specified"
+    1 -> return ()
+    _ -> fail' "Multiple primary keys specified"
 
   let constraintCols = concatMap getConstraintColumns constraints
       schemaCols = map colName schema
   when (any (`notElem` schemaCols) constraintCols) $
-    Left $ "Table constraint references non-existent column: " ++ show ct
+    fail' "Table constraint references non-existent column"
+  where
+    fail' = Left . (++ ": " ++ show ct)
+
 validateOperation ac@AddColumn{..} = do
   validateColumn column
   when (NotNull `elem` colProps column && isNothing colDefault) $
-    Left $ "Adding a non-nullable column requires a default: " ++ show ac
+    fail' "Adding a non-nullable column requires a default"
+  where
+    fail' = Left . (++ ": " ++ show ac)
+
 validateOperation _ = return ()
