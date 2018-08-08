@@ -6,7 +6,7 @@
 
 module Property (testProperties) where
 
-import Control.Monad (unless, (>=>))
+import Control.Monad (unless)
 import Control.Monad.Catch (SomeException(..), try)
 import Control.Monad.IO.Class (liftIO)
 import Data.List (nub)
@@ -136,7 +136,14 @@ runSqlPool getPool f = run $ getPool >>= \pool -> runSql pool f
 
 -- | Run the given operation.
 runOperation :: MigrateBackend -> Operation -> SqlPersistT IO ()
-runOperation backend = getMigrationSql backend >=> mapM_ rawExecutePrint
+runOperation backend operation = do
+  case validateOperation operation of
+    Right () -> return ()
+    Left msg -> do
+      liftIO $ putStrLn "\n*** Failure: validateOperation failed"
+      fail msg
+
+  getMigrationSql backend operation >>= mapM_ rawExecutePrint
   where
     -- if rawExecute fails, show the sql query run
     rawExecutePrint sql = try (executeSql sql) >>= \case
