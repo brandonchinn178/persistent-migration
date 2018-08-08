@@ -23,7 +23,8 @@ module Database.Persist.Migration.Operation
   ) where
 
 import Control.Monad (when)
-import Data.Maybe (isNothing)
+import Data.List (nub)
+import Data.Maybe (isNothing, mapMaybe)
 import Data.Text (Text)
 import Database.Persist.Migration.Operation.Types
 import Database.Persist.Migration.Utils.Data (isConstr)
@@ -122,6 +123,12 @@ validateOperation ct@CreateTable{..} = do
     0 -> fail' "No primary key specified"
     1 -> return ()
     _ -> fail' "Multiple primary keys specified"
+
+  let getUniqueName (Unique n _) = Just n
+      getUniqueName _ = Nothing
+      uniqueNames = mapMaybe getUniqueName constraints
+  when (length (nub uniqueNames) /= length uniqueNames) $
+    fail' "Multiple unique constraints with the same name detected"
 
   let constraintCols = concatMap getConstraintColumns constraints
       schemaCols = map colName schema
