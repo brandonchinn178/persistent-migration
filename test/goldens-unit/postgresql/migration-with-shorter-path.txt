@@ -1,3 +1,3 @@
-CREATE TABLE IF NOT EXISTS "person" ( "gender" VARCHAR )
+CREATE TABLE IF NOT EXISTS "person" ( "id" SERIAL NOT NULL ,"gender" VARCHAR,PRIMARY KEY ( "id" ) )
 
 []
