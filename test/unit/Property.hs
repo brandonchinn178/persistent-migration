@@ -25,6 +25,8 @@ testProperties = testGroup "properties"
       forAll arbitrary $ \(OperationPaths opPaths) -> do
         opPaths' <- mapSomeDupl opPaths
         return . not . isValidOperationPaths $ OperationPaths opPaths'
+  , testProperty "Valid CreateTable" $
+      forAll arbitrary $ isValidOperation . toOperation
   , testProperty "Duplicate ColumnProps in CreateTable" $ do
       colsMaybeProps <- listOf arbitrary
       colsWithProps <- listOf1 (arbitrary `suchThat` (not . null . colProps))
