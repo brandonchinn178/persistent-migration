@@ -117,6 +117,9 @@ instance Show (SqlPersistT m a) where
 -- | Validate that the given Operation is valid.
 validateOperation :: Operation -> Either String ()
 validateOperation ct@CreateTable{..} = do
+  when (null schema) $
+    fail' "No columns specified in the schema"
+
   mapM_ validateColumn schema
 
   case length . filter (isConstr "PrimaryKey") $ constraints of
