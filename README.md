@@ -26,7 +26,6 @@ version.
 
 ```
 import Database.Persist.Migration
-import Database.Persist.Sql (PersistValue(..), rawSql)
 
 createPerson :: CreateTable
 createPerson = CreateTable
