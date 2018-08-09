@@ -24,12 +24,12 @@ module Database.Persist.Migration
 import Control.Monad (unless)
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as Text
-import Database.Persist.Sql (PersistValue(..), SqlType(..), rawSql)
 import Database.Persist.Migration.Backend
 import Database.Persist.Migration.Core hiding (getMigration, runMigration)
 import Database.Persist.Migration.Operation
 import Database.Persist.Migration.Operation.Types
 import Database.Persist.Migration.Utils.Sql
+import Database.Persist.Sql (PersistValue(..), SqlType(..), rawSql)
 import qualified Database.Persist.Sql as Persistent
 
 -- | True if the persistent library detects more migrations unaccounted for.
