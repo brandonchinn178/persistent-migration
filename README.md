@@ -1,9 +1,12 @@
 # persistent-migration
 
 [![CircleCI](https://circleci.com/gh/brandonchinn178/persistent-migration/tree/master.svg?style=svg)](https://circleci.com/gh/brandonchinn178/persistent-migration/tree/master)
+[![Hackage](https://img.shields.io/hackage/v/persistent-migration.svg)](https://hackage.haskell.org/package/persistent-migration)
 
 This is a migration library for the
 [persistent](http://www.stackage.org/package/persistent) package.
+
+## Overview
 
 By default, persistent provides a way to do automatic migrations; how to
 quickly and conveniently update the schema to match the definitions of the
@@ -23,6 +26,8 @@ Each `Operation` represents a movement from one version of the schema to
 another. `runMigration` will check to see the current version of the schema and
 run the `Operations` necessary to get from the current version to the latest
 version.
+
+## Usage
 
 ```
 import Database.Persist.Migration
@@ -103,3 +108,22 @@ main = do
 ```
 
 For more examples, see `test/integration/Migration.hs`.
+
+## FAQs
+
+* I don't know the `SqlType` corresponding to my column's Haskell type
+
+As a general rule, complicated JSON serialization will be `SqlBlob`, but
+it might be `SqlString` for simpler data types. You can always choose one,
+and see if Persistent complains about it needing to be another type.
+
+For example, you might want to put `SqlBlob` first, and see if Persistent
+errors with something like:
+
+```
+More migrations detected:
+ * ALTER TABLE table ALTER COLUMN col TYPE VARCHAR
+```
+
+If Persistent tries to change the type to `VARCHAR`, then it probably
+wants `SqlString` instead.
