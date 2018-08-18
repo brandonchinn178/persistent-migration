@@ -17,7 +17,13 @@ Defines a migration framework for the persistent library.
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Database.Persist.Migration.Core
-  ( MigrateSettings(..)
+  ( Version
+  , OperationPath
+  , (~>)
+  , Migration
+  , MigrationPath(..)
+  , opPath
+  , MigrateSettings(..)
   , defaultSettings
   , validateMigration
   , runMigration
@@ -32,14 +38,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Time.Clock (getCurrentTime)
 import Database.Persist.Migration.Backend (MigrateBackend(..))
-import Database.Persist.Migration.Operation
-    ( Migration
-    , MigrationPath(..)
-    , Operation(..)
-    , Version
-    , opPath
-    , validateOperation
-    )
+import Database.Persist.Migration.Operation (Operation(..), validateOperation)
 import Database.Persist.Migration.Operation.Types
     (Column(..), ColumnProp(..), TableConstraint(..))
 import Database.Persist.Migration.Utils.Plan (getPath)
@@ -47,6 +46,34 @@ import Database.Persist.Migration.Utils.Sql (MigrateSql, executeSql)
 import Database.Persist.Sql
     (PersistValue(..), Single(..), SqlPersistT, rawExecute, rawSql)
 import Database.Persist.Types (SqlType(..))
+
+-- | The version of a database. An operation migrates from the given version to another version.
+--
+-- The version must be increasing, such that the lowest version is the first version and the highest
+-- version is the most up-to-date version.
+--
+-- A version represents a version of the database schema. In other words, any set of operations
+-- taken to get to version X *MUST* all result in the same database schema.
+type Version = Int
+
+-- | The path that an operation takes.
+type OperationPath = (Version, Version)
+
+-- | An infix constructor for 'OperationPath'.
+(~>) :: Version -> Version -> OperationPath
+(~>) = (,)
+
+-- | A migration list that defines operations to manually migrate a database schema.
+type Migration = [MigrationPath]
+
+-- | A path representing the operations needed to run to get from one version of the database schema
+-- to the next.
+data MigrationPath = OperationPath := [Operation]
+  deriving (Show)
+
+-- | Get the OperationPath in the MigrationPath.
+opPath :: MigrationPath -> OperationPath
+opPath (path := _) = path
 
 -- | Get the current version of the database, or Nothing if none exists.
 getCurrVersion :: MonadIO m => MigrateBackend -> SqlPersistT m (Maybe Version)
