@@ -6,4 +6,4 @@ set -eo pipefail
 
 builtin cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-stack exec -- hlint .
+stack exec -- ~/.local/bin/hlint .

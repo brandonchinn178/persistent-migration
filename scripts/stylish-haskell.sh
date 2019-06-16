@@ -30,13 +30,19 @@ function check_file_empty() {
     fi
 }
 
+RUN_STYLISH=~/.local/bin/stylish-haskell
+if [[ ! -f "${RUN_STYLISH}" ]]; then
+    echo "stylish-haskell not built"
+    exit 1
+fi
+
 if [[ "$STYLISH_APPLY" == 1 ]]; then
     get_files | xargs stack exec -- stylish-haskell --inplace
 else
     trap 'rm -rf .tmp' 0
     get_files | while read FILE; do
         mkdir -p ".tmp/$(dirname "$FILE")"
-        stack exec -- stylish-haskell "$FILE" | diff_no_fail --unified "$FILE" - > .tmp/"$FILE"
+        stack exec -- "${RUN_STYLISH}" "$FILE" | diff_no_fail --unified "$FILE" - > .tmp/"$FILE"
     done
     find .tmp -type f | xargs cat | tee .tmp/diffs.txt
     check_file_empty .tmp/diffs.txt
