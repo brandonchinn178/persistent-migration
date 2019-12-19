@@ -29,7 +29,7 @@ version.
 
 ## Usage
 
-```
+```haskell
 import Database.Persist.Migration
 
 createPerson :: CreateTable
@@ -89,7 +89,7 @@ migration =
   ]
 ```
 
-```
+```haskell
 import Database.Persist.Migration (checkMigration, defaultSettings)
 import Database.Persist.Migration.Postgres (runMigration)
 
