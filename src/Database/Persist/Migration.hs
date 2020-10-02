@@ -40,7 +40,7 @@ hasMigration = fmap (not . null) . Persistent.showMigration
 checkMigration :: MonadIO m => Persistent.Migration -> Persistent.SqlPersistT m ()
 checkMigration migration = do
   migrationText <- Persistent.showMigration migration
-  unless (null migrationText) $ fail $
+  unless (null migrationText) $ error $
     unlines $ "More migrations detected:" : bullets migrationText
   where
     bullets = map ((" * " ++ ) . Text.unpack)

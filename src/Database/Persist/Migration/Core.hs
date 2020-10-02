@@ -163,12 +163,12 @@ getMigration :: MonadIO m
   -> Migration
   -> SqlPersistT m [MigrateSql]
 getMigration backend _ migration = do
-  either fail return $ validateMigration migration
+  either error return $ validateMigration migration
   currVersion <- getCurrVersion backend
   operations <- either badPath return $ getOperations migration currVersion
-  either fail return $ mapM_ validateOperation operations
+  either error return $ mapM_ validateOperation operations
   concatMapM (mapReaderT liftIO . getMigrationSql backend) operations
   where
-    badPath (start, end) = fail $ "Could not find path: " ++ show start ++ " ~> " ++ show end
+    badPath (start, end) = error $ "Could not find path: " ++ show start ++ " ~> " ++ show end
     -- Utilities
     concatMapM f = fmap concat . mapM f
