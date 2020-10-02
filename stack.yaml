@@ -1,11 +1,6 @@
-resolver: lts-11.11
+resolver: lts-16.16
 install-ghc: true
 
 packages:
 - .
 
-extra-deps:
-# until 2.1.6 released
-- git: https://github.com/ndmitchell/hlint
-  commit: 749179b88e6c92b4e9e9f6e55da30012cd158536
-- tasty-golden-2.3.2

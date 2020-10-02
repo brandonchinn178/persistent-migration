@@ -171,7 +171,7 @@ genPersistValue = \case
   SqlTime -> PersistTimeOfDay <$> arbitrary
   SqlDayTime -> PersistUTCTime <$> arbitrary
   SqlBlob -> PersistByteString . ByteString.map cleanText <$> arbitrary
-  SqlOther _ -> fail "SqlOther not supported"
+  SqlOther _ -> error "SqlOther not supported"
   where
     cleanDouble :: Double -> Double
     cleanDouble x = if isInfinite x || isNaN x then 0 else x
