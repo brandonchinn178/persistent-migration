@@ -1,3 +1,14 @@
+## persistent-migration 0.2.0
+
+Breaking changes:
+* Moved some types out of `Database.Persist.Migration.Operation` and into `Database.Persist.Migration.Core`
+
+Fixes:
+* Fix for GHC 8.8
+
+Other changes:
+* Re-export `rawSql` in `Database.Persist.Migration`
+
 ## persistent-migration 0.1.0
 
 Breaking changes:
