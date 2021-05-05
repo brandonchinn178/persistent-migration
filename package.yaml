@@ -12,16 +12,8 @@ extra-doc-files:
 
 github: brandonchinn178/persistent-migration
 
-flags:
-  dev:
-    description:  Turn on development settings.
-    manual:       true
-    default:      false
-
 ghc-options: -Wall
 when:
-  - condition: flag(dev)
-    ghc-options: -Werror
   - condition: impl(ghc >= 8.0)
     ghc-options:
       - -Wcompat
