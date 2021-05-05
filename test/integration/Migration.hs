@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -21,7 +22,9 @@ import Control.Exception (finally)
 import Control.Monad (unless, when)
 import Data.ByteString.Lazy (ByteString, fromStrict)
 import Data.Maybe (mapMaybe)
+#if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
+#endif
 import Data.Pool (Pool)
 import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))

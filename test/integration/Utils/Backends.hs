@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Utils.Backends
@@ -7,7 +8,9 @@ module Utils.Backends
 import Control.Concurrent (threadDelay)
 import Control.Monad.Logger (runNoLoggingT)
 import qualified Data.ByteString.Char8 as ByteString
+#if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
+#endif
 import Data.Pool (Pool, destroyAllResources)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
