@@ -30,12 +30,7 @@ import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
-import Database.Persist.Sql
-    ( Single(..)
-    , SqlBackend
-    , SqlPersistT
-    , rawExecute
-    )
+import Database.Persist.Sql (Single(..), SqlBackend, SqlPersistT, rawExecute)
 import Database.Persist.TH
     (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import Test.Tasty (TestTree, testGroup)

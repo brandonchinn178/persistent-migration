@@ -59,7 +59,7 @@ instance Arbitrary CreateTable' where
     let tableNames' = filter (/= name) tableNames
     cols <- vectorOf (length colNames') $ genColumn tableNames'
     let idCol = Column "id" SqlInt32 [NotNull, AutoIncrement]
-        cols' = map (\(colName', col) -> col{colName = colName'}) $ zip colNames' cols
+        cols' = zipWith (\colName' col -> col{colName = colName'}) colNames' cols
         ctSchema = idCol : cols'
 
     -- all of the columns that will be unique
