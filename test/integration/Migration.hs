@@ -30,15 +30,11 @@ import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
-import Database.Persist.Migration.Utils.Sql (uncommas, uncommas')
 import Database.Persist.Sql
-    ( PersistValue(..)
-    , Single(..)
+    ( Single(..)
     , SqlBackend
     , SqlPersistT
-    , SqlType(..)
     , rawExecute
-    , rawSql
     )
 import Database.Persist.TH
     (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)

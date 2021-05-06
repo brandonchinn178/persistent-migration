@@ -22,7 +22,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Migration
 import qualified Database.Persist.Migration.Core as Migration
-import Database.Persist.Sql (PersistValue, SqlPersistT, SqlType(..))
+import Database.Persist.Sql (SqlPersistT)
 
 -- | Run a migration with the Postgres backend.
 runMigration :: MigrateSettings -> Migration -> SqlPersistT IO ()
