@@ -4,5 +4,5 @@
 
 set -eo pipefail
 
-stack build --test --only-dependencies
-stack install hlint stylish-haskell
+stack build -j1 --test --only-dependencies
+stack install -j1 hlint stylish-haskell

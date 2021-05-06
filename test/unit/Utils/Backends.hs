@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -70,6 +71,9 @@ withTestBackend action = do
     , connLimitOffset = error "connLimitOffset"
     , connLogFunc = \_ _ _ _ -> return ()
     , connMaxParams = error "connMaxParams"
+#if MIN_VERSION_persistent(2, 9, 0)
+    , connRepsertManySql = error "connRepsertManySql"
+#endif
     }
   where
     stmt = Statement

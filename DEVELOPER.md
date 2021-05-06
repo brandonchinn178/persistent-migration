@@ -8,7 +8,7 @@
 
 ## Build
 
-`stack build --flag persistent-migration:dev`
+`stack build`
 
 ## Run tests
 

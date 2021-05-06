@@ -4,3 +4,5 @@ install-ghc: true
 packages:
 - .
 
+ghc-options:
+  '$locals': -Werror

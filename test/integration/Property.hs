@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -11,7 +12,9 @@ import Control.Monad.Catch (SomeException(..), try)
 import Control.Monad.IO.Class (liftIO)
 import Data.List (nub)
 import Data.Maybe (mapMaybe)
+#if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
+#endif
 import Data.Pool (Pool)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
@@ -123,9 +126,9 @@ testProperties backend getPool = testGroup "properties"
       table <- pick arbitrary
       fkTables <- pick $ getForeignKeyTables table
       runSqlPool' $ mapM_ (runOperation' . toOperation) (fkTables ++ [table])
-      isSuccess <- toBool <$> action (table, fkTables)
+      isSuccessful <- toBool <$> action (table, fkTables)
       runSqlPool' $ mapM_ dropTable' (table:fkTables)
-      unless isSuccess $ stop rejected
+      unless isSuccessful $ stop rejected
     dropTable' CreateTable'{ctName} = runOperation' $ DropTable ctName
 
 {- Helpers -}

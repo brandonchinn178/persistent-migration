@@ -6,6 +6,7 @@ Portability :  portable
 
 Defines helper functions for writing SQL queries.
 -}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -22,7 +23,9 @@ module Database.Persist.Migration.Utils.Sql
   ) where
 
 import Control.Monad.IO.Class (MonadIO(..))
+#if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
+#endif
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Database.Persist.Sql (PersistValue(..), SqlPersistT)

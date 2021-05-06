@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -19,7 +20,9 @@ import Control.Monad ((>=>))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as ByteString
 import Data.List (nub)
+#if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
+#endif
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -56,7 +59,7 @@ instance Arbitrary CreateTable' where
     let tableNames' = filter (/= name) tableNames
     cols <- vectorOf (length colNames') $ genColumn tableNames'
     let idCol = Column "id" SqlInt32 [NotNull, AutoIncrement]
-        cols' = map (\(colName', col) -> col{colName = colName'}) $ zip colNames' cols
+        cols' = zipWith (\colName' col -> col{colName = colName'}) colNames' cols
         ctSchema = idCol : cols'
 
     -- all of the columns that will be unique

@@ -1,5 +1,5 @@
 name:         persistent-migration
-version:      0.1.0
+version:      0.2.0
 license:      BSD3
 author:       Brandon Chinn <brandonchinn178@gmail.com>
 maintainer:   Brandon Chinn <brandonchinn178@gmail.com>
@@ -12,22 +12,16 @@ extra-doc-files:
 
 github: brandonchinn178/persistent-migration
 
-flags:
-  dev:
-    description:  Turn on development settings.
-    manual:       true
-    default:      false
-
 ghc-options: -Wall
 when:
-  - condition: flag(dev)
-    ghc-options: -Werror
   - condition: impl(ghc >= 8.0)
     ghc-options:
       - -Wcompat
       - -Wincomplete-record-updates
       - -Wincomplete-uni-patterns
       - -Wnoncanonical-monad-instances
+  - condition: impl(ghc < 8.8)
+    ghc-options:
       - -Wnoncanonical-monadfail-instances
 
 library:

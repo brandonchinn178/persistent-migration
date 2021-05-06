@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -21,22 +22,15 @@ import Control.Exception (finally)
 import Control.Monad (unless, when)
 import Data.ByteString.Lazy (ByteString, fromStrict)
 import Data.Maybe (mapMaybe)
+#if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
+#endif
 import Data.Pool (Pool)
 import Data.Text (Text)
 import Data.Yaml (array, encode, object, (.=))
 import Database.Persist (Entity(..), get, insertKey, insertMany_, selectList)
 import Database.Persist.Migration
-import Database.Persist.Migration.Utils.Sql (uncommas, uncommas')
-import Database.Persist.Sql
-    ( PersistValue(..)
-    , Single(..)
-    , SqlBackend
-    , SqlPersistT
-    , SqlType(..)
-    , rawExecute
-    , rawSql
-    )
+import Database.Persist.Sql (Single(..), SqlBackend, SqlPersistT, rawExecute)
 import Database.Persist.TH
     (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import Test.Tasty (TestTree, testGroup)
