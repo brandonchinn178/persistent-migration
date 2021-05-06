@@ -126,9 +126,9 @@ testProperties backend getPool = testGroup "properties"
       table <- pick arbitrary
       fkTables <- pick $ getForeignKeyTables table
       runSqlPool' $ mapM_ (runOperation' . toOperation) (fkTables ++ [table])
-      isSuccess <- toBool <$> action (table, fkTables)
+      isSuccessful <- toBool <$> action (table, fkTables)
       runSqlPool' $ mapM_ dropTable' (table:fkTables)
-      unless isSuccess $ stop rejected
+      unless isSuccessful $ stop rejected
     dropTable' CreateTable'{ctName} = runOperation' $ DropTable ctName
 
 {- Helpers -}
