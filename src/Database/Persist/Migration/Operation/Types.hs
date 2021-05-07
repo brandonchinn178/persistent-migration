@@ -6,13 +6,10 @@ Portability :  portable
 
 Defines auxiliary data types that can be used in Operations.
 -}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Database.Persist.Migration.Operation.Types
   ( ColumnIdentifier
@@ -21,14 +18,14 @@ module Database.Persist.Migration.Operation.Types
   , validateColumn
   , ColumnProp(..)
   , TableConstraint(..)
+  , isPrimaryKey
   , getConstraintColumns
   ) where
 
 import Control.Monad (when)
-import Data.Data (Data)
+import Data.List (nub)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Database.Persist.Migration.Utils.Data (hasDuplicateConstrs)
 import Database.Persist.Sql (PersistValue(..))
 import Database.Persist.Types (SqlType)
 
@@ -48,8 +45,17 @@ data Column = Column
 
 -- | Validate a Column.
 validateColumn :: Column -> Either String ()
-validateColumn col@Column{..} = when (hasDuplicateConstrs colProps) $
+validateColumn col@Column{..} = when (hasDuplicates $ map getColumnPropName colProps) $
   Left $ "Duplicate column properties detected: " ++ show col
+  where
+    hasDuplicates l = length l /= length (nub l)
+
+    getColumnPropName :: ColumnProp -> String
+    getColumnPropName = \case
+      NotNull{} -> "NotNull"
+      References{} -> "References"
+      AutoIncrement{} -> "AutoIncrement"
+      Default{} -> "Default"
 
 -- | A property for a 'Column'.
 data ColumnProp
@@ -66,15 +72,18 @@ data ColumnProp
     -- See 'AddColumn' for setting the default value for existing rows in a migration.
     --
     -- More info: https://www.yesodweb.com/book/persistent#persistent_attributes
-  deriving (Show,Eq,Data)
-
-deriving instance Data PersistValue
+  deriving (Show,Eq)
 
 -- | Table constraints in a CREATE query.
 data TableConstraint
   = PrimaryKey [Text] -- ^ PRIMARY KEY (col1, col2, ...)
   | Unique Text [Text] -- ^ CONSTRAINT name UNIQUE (col1, col2, ...)
-  deriving (Show,Data)
+  deriving (Show)
+
+isPrimaryKey :: TableConstraint -> Bool
+isPrimaryKey = \case
+  PrimaryKey{} -> True
+  _ -> False
 
 -- | Get the columns defined in the given TableConstraint.
 getConstraintColumns :: TableConstraint -> [Text]
