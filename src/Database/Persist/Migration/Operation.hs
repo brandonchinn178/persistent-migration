@@ -20,7 +20,6 @@ import Data.List (nub)
 import Data.Maybe (isNothing, mapMaybe)
 import Data.Text (Text)
 import Database.Persist.Migration.Operation.Types
-import Database.Persist.Migration.Utils.Data (isConstr)
 import Database.Persist.Migration.Utils.Sql (MigrateSql)
 import Database.Persist.Sql (PersistValue, SqlPersistT)
 
@@ -87,7 +86,7 @@ validateOperation ct@CreateTable{..} = do
 
   mapM_ validateColumn schema
 
-  case length . filter (isConstr "PrimaryKey") $ constraints of
+  case length . filter isPrimaryKey $ constraints of
     0 -> fail' "No primary key specified"
     1 -> return ()
     _ -> fail' "Multiple primary keys specified"

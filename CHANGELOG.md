@@ -1,3 +1,8 @@
+## persistent-migration 0.2.1
+
+Fixes:
+* Fix build for persistent-2.12.0.0
+
 ## persistent-migration 0.2.0
 
 Breaking changes:
