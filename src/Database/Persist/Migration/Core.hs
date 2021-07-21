@@ -146,14 +146,18 @@ validateMigration migration = do
 -- | Run the given migration. After successful completion, saves the migration to the database.
 runMigration :: MonadIO m => MigrateBackend -> MigrateSettings -> Migration -> SqlPersistT m ()
 runMigration backend settings@MigrateSettings{..} migration = do
-  getMigration backend settings migration >>= mapM_ executeSql
-  now <- liftIO getCurrentTime
-  let version = getLatestVersion migration
-  rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?, ?)"
-    [ PersistInt64 $ fromIntegral version
-    , PersistText $ Text.pack $ fromMaybe (show version) $ versionToLabel version
-    , PersistUTCTime now
-    ]
+  currVersion <- getCurrVersion backend
+  let latestVersion = getLatestVersion migration
+  case currVersion of
+    Just current | current >= latestVersion -> pure ()
+    _ -> do
+      getMigration backend settings migration >>= mapM_ executeSql
+      now <- liftIO getCurrentTime
+      rawExecute "INSERT INTO persistent_migration(latestVersion, label, timestamp) VALUES (?, ?, ?)"
+        [ PersistInt64 $ fromIntegral latestVersion
+        , PersistText $ Text.pack $ fromMaybe (show latestVersion) $ versionToLabel latestVersion
+        , PersistUTCTime now
+        ]
 
 -- | Get the SQL queries for the given migration.
 getMigration :: MonadIO m
