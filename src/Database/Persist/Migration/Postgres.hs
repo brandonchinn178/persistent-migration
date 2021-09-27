@@ -120,9 +120,10 @@ showColumn Column{..} = concatSql
   (\sqls -> Text.unwords $ [quote colName, sqlType] ++ sqls)
   $ map showColumnProp colProps
   where
-    sqlType = if AutoIncrement `elem` colProps
-      then "SERIAL"
-      else showSqlType colType
+    sqlType = case (AutoIncrement `elem` colProps, colType) of
+      (True, SqlInt32) -> "SERIAL"
+      (True, SqlInt64) -> "BIGSERIAL"
+      _ -> showSqlType colType
 
 -- | Show a 'SqlType'. See `showSqlType` from `Database.Persist.Postgresql`.
 showSqlType :: SqlType -> Text
