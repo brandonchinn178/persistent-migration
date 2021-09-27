@@ -1,3 +1,9 @@
+## persistent-migration 0.3.0
+
+Fixes:
+* Don't insert into `persistent_migration` table if no migrations are running ([#72](https://github.com/brandonchinn178/persistent-migration/pull/72))
+* Fix `SERIAL` type for INT64 columns ([#79](https://github.com/brandonchinn178/persistent-migration/pull/79))
+
 ## persistent-migration 0.2.1
 
 Fixes:
