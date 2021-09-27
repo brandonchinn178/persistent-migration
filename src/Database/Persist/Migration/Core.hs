@@ -153,7 +153,7 @@ runMigration backend settings@MigrateSettings{..} migration = do
     _ -> do
       getMigration backend settings migration >>= mapM_ executeSql
       now <- liftIO getCurrentTime
-      rawExecute "INSERT INTO persistent_migration(latestVersion, label, timestamp) VALUES (?, ?, ?)"
+      rawExecute "INSERT INTO persistent_migration(version, label, timestamp) VALUES (?, ?, ?)"
         [ PersistInt64 $ fromIntegral latestVersion
         , PersistText $ Text.pack $ fromMaybe (show latestVersion) $ versionToLabel latestVersion
         , PersistUTCTime now
