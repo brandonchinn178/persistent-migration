@@ -47,7 +47,7 @@ withPostgres dir = withResource startPostgres stopPostgres
       let connString = ByteString.pack $ "postgresql:///test_db?host=" ++ dir'
       runNoLoggingT $ createPostgresqlPool connString 4
     stopPostgres pool = do
-      callProcess' "pg_ctl" ["-D", dir', "stop"]
+      callProcess' "pg_ctl" ["-D", dir', "stop", "-m", "fast"]
       destroyAllResources pool
     -- utilities
     callProcess' cmd args = do

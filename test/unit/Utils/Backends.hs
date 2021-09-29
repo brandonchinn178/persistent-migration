@@ -16,7 +16,9 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import Database.Persist.Migration (Version)
-import Database.Persist.Sql (PersistValue(..), SqlBackend(..), Statement(..))
+import Database.Persist.Sql (PersistValue(..), Statement(..))
+import Database.Persist.SqlBackend
+    (MkSqlBackendArgs(..), SqlBackend, mkSqlBackend)
 import System.IO.Unsafe (unsafePerformIO)
 
 {- Mock test database -}
@@ -45,7 +47,7 @@ setDatabase = writeIORef mockDatabase
 withTestBackend :: (SqlBackend -> IO a) -> IO a
 withTestBackend action = do
   smap <- newIORef Map.empty
-  action SqlBackend
+  action $ mkSqlBackend MkSqlBackendArgs
     { connPrepare = \case
         "SELECT version FROM persistent_migration ORDER BY timestamp DESC LIMIT 1" ->
           return stmt
@@ -57,23 +59,18 @@ withTestBackend action = do
         _ -> return stmt
     , connStmtMap = smap
     , connInsertSql = error "connInsertSql"
-    , connUpsertSql = error "connUpsertSql"
-    , connPutManySql = error "connPutManySql"
-    , connInsertManySql = error "connInsertManySql"
     , connClose = error "connClose"
     , connMigrateSql = error "connMigrateSql"
     , connBegin = error "connBegin"
     , connCommit = error "connCommit"
     , connRollback = error "connRollback"
-    , connEscapeName = error "connEscapeName"
+    , connEscapeFieldName = error "connEscapeFieldName"
+    , connEscapeTableName = error "connEscapeTableName"
+    , connEscapeRawName = error "connEscapeRawName"
     , connNoLimit = error "connNoLimit"
     , connRDBMS = error "connRDBMS"
     , connLimitOffset = error "connLimitOffset"
     , connLogFunc = \_ _ _ _ -> return ()
-    , connMaxParams = error "connMaxParams"
-#if MIN_VERSION_persistent(2, 9, 0)
-    , connRepsertManySql = error "connRepsertManySql"
-#endif
     }
   where
     stmt = Statement
