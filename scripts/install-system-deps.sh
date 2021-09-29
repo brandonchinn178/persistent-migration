@@ -19,7 +19,7 @@ function install_darwin() {
 function install_linux() {
     if is_command yum; then
         yum update -y --exclude=filesystem
-        yum install -y zlib-devel postgresql-devel postgresql-server
+        yum install -y zlib-devel postgresql-devel postgresql-server ncurses-devel
     fi
 }
 
